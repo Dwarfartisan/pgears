@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"gears/exp"
+	"github.com/Dwarfartisan/pgears/exp"
 	"database/sql"
 )
 

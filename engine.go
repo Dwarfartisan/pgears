@@ -6,7 +6,7 @@ import (
 	"database/sql"
 	_ "github.com/lib/pq"
 	"github.com/lib/pq"
-	"gears/exp"
+	"github.com/Dwarfartisan/pgears/exp"
 	"errors"
 )
 
