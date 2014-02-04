@@ -34,7 +34,7 @@ func NewDbField(fieldStruct *reflect.StructField) *dbfield{
 	}
 	var tag = fieldStruct.Tag
 	ret.DbName = tag.Get("field")
-	if pk := tag.Get("PK"); pk=="true" {
+	if pk := tag.Get("pk"); pk=="true" {
 		ret.IsPK = true
 	}
 	ret.Fetch = selectFetch(ret.NotNull, ret.GoType, tag)
@@ -49,7 +49,7 @@ func NewDbField(fieldStruct *reflect.StructField) *dbfield{
 	default:
 		if tag.Get("jsonto")!=""{
 			ret.DbType= "JSON"
-		} else if fullGoName(ret.GoType)=="time.Time"{
+		} else if fullGoName(typ)=="time.Time"{
 			ret.DbType="TIMESTAMP"
 		}
 	}
@@ -91,7 +91,7 @@ func selectFetch(notnull bool, fieldType *reflect.Type, tag reflect.StructTag) f
 		if tag.Get("jsonto")=="struct" {
 			return fetchJsonStruct
 		} 
-		if (fullGoName(fieldType)=="time.Time") {
+		if (fullGoName(ft)=="time.Time") {
 			if notnull {
 				return fetchTime
 			} else {
@@ -99,7 +99,8 @@ func selectFetch(notnull bool, fieldType *reflect.Type, tag reflect.StructTag) f
 			}
 		}
 	default:
-		var err = errors.New("I don't know howto fetch it.")
+		var message = fmt.Sprintf("I don't know how to fetch it: %v", ft.Kind())
+		var err = errors.New(message)
 		panic(err)
 	}
 	return nil
@@ -132,14 +133,14 @@ func (fm *fieldmap)DbGet(goname string) (*dbfield, bool) {
 	}
 }
 func (fm *fieldmap)GoKeys() []string {
-	var ret = make([]string, len(fm.gomap))
+	var ret = make([]string, 0)
 	for key := range fm.gomap {
 		ret = append(ret, key)
 	}
 	return ret
 }
 func (fm *fieldmap)DbKeys() []string {
-	var ret = make([]string, len(fm.dbmap))
+	var ret = make([]string, 0)
 	for key := range fm.dbmap {
 		ret = append(ret, key)
 	}
@@ -176,17 +177,17 @@ func NewDbTable(typ *reflect.Type, tablename string) *dbtable {
 // dbtable 是已经解析过的结构体和数据表的定义对照表，所以从中可以生成表、主键和（非主键）数据字段
 // 的列表以及用于 where 的 筛选条件（即所有
 func (dbt *dbtable)Extract()(t *exp.Table, pk []exp.Exp, other []exp.Exp, cond exp.Exp) {
-	t = exp.TableAs(fullGoName(dbt.gotype), dbt.tablename)
+	t = exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
 	pk = make([]exp.Exp, 0)
 	other = make([]exp.Exp, 0)
 	for _, key := range dbt.fields.GoKeys() {
 		// 这里要取不是pk的
 		dbf, _:=dbt.fields.GoGet(key)
-		var f = &exp.Field{t, dbf.GoName, dbf.DbName}
+		var f = exp.Field{t, dbf.GoName, dbf.DbName}
 		if dbf.IsPK {
-			pk = append(pk, f)
+			pk = append(pk, &f)
 		} else {
-			other = append(other, f)
+			other = append(other, &f)
 		}
 	}
 	var gokeys = dbt.pk.GoKeys()
@@ -199,7 +200,6 @@ func (dbt *dbtable)Extract()(t *exp.Table, pk []exp.Exp, other []exp.Exp, cond e
 				cond)
 		}
 	}
-
 	return t, pk, other, cond
 }
 
@@ -253,6 +253,6 @@ func makeFetchHelper(fieldmap map[string]*dbfield) structFetchFunc {
 	return refunc
 }
 
-func fullGoName(typ *reflect.Type) string {
-	return fmt.Sprintf("%s.%s", (*typ).PkgPath(), (*typ).Name())
+func fullGoName(typ reflect.Type) string {
+	return fmt.Sprintf("%s.%s", typ.PkgPath(), typ.Name())
 }

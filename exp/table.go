@@ -40,7 +40,11 @@ func (t *Table)Eval(env Env)string{
 	if t.DbName == "" {
 		t.DbName = env.TynaToTana(t.GoName)
 	}
-	return fmt.Sprintf("%s as %s", t.DbName, t.AliasName)
+	if t.AliasName == "" {
+		return t.DbName
+	} else {
+		return fmt.Sprintf("%s as %s", t.DbName, t.AliasName)
+	}
 }
 
 func (t *Table)Alias()string{

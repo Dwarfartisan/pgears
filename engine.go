@@ -17,7 +17,7 @@ type Engine struct {
 	*sql.DB
  	//table map to go type
 	tablemap map[string]*dbtable
-	gomap map[*reflect.Type]*dbtable
+	gomap map[reflect.Type]*dbtable
 	gonmap map[string]*dbtable
 }
 func CreateEngine(url string) (*Engine, error){
@@ -30,12 +30,13 @@ func CreateEngine(url string) (*Engine, error){
 		return nil, err
 	}
 	return &Engine{conn, make(map[string]*dbtable), 
-		make(map[*reflect.Type]*dbtable),
+		make(map[reflect.Type]*dbtable),
 		make(map[string]*dbtable),
 	}, nil
 }
 func (e *Engine)Prepare(exp exp.Exp)(*Query, error){
 	var sql = exp.Eval(e)
+	fmt.Println("sql: ", sql)
 	var stmt, err = e.DB.Prepare(sql)
 	if err != nil {
 		return nil, err
@@ -57,10 +58,10 @@ func (e *Engine)Prepare(exp exp.Exp)(*Query, error){
 // 没做自动转换真的不是因为懒……相信我……
 func (e *Engine)MapStructTo(s interface{}, tablename string){
 	var val = reflect.ValueOf(s)
-	var typ = val.Type()
+	var typ = val.Type().Elem()
 	var table = NewDbTable(&typ, tablename)
 	e.tablemap[tablename] = table
-	e.gomap[&typ] = table
+	e.gomap[typ] = table
 	var fullname = fmt.Sprintf("%s.%s", typ.PkgPath(), typ.Name())
 	e.gonmap[fullname] = table
 }
@@ -73,8 +74,8 @@ func (e *Engine)RegistStruct(s interface{}, tablename string){
 	var val = reflect.ValueOf(s)
 	var typ = val.Type()
 	var table = NewDbTable(&typ, tablename)
-	e.gomap[&typ] = table
-	var fullname = fullGoName(&typ)
+	e.gomap[typ] = table
+	var fullname = fullGoName(typ)
 	e.gonmap[fullname] = table
 }
 // Type Name to Table Name
@@ -94,8 +95,7 @@ func (e *Engine)FinaToCona(typename string, fieldname string) string{
 // 目前操作匿名类型可以先拼接一个 Exp ，然后让Engine 去 prepare 出对应的 Query，
 // 然后用 Query 和 Result 操作
 func (e *Engine)Select(obj interface{}) error {
-	var typv  = reflect.TypeOf(obj).Elem()
-	var typ = &typv
+	var typ  = reflect.TypeOf(obj).Elem()
 	if m, ok := e.gomap[typ];ok {
 		var tabl, pk, fs, cond = m.Extract()
 		var sel = exp.Select(fs...).From(tabl).Where(cond)
@@ -122,14 +122,13 @@ func (e *Engine)Select(obj interface{}) error {
 		return nil
 	}else{
 		var message = fmt.Sprintf("%v.%v is't a regiested type", 
-			(*typ).PkgPath(), (*typ).Name())
+			typ.PkgPath(), typ.Name())
 		return errors.New(message)
 	}
 }
 // insert 当前的设定是insert仅插入非主键数据，所有主键从数据库加载load后的
 func (e *Engine)Insert(obj interface{}) error {
-	var objt = reflect.TypeOf(obj).Elem()
-	var typ = &objt
+	var typ = reflect.TypeOf(obj).Elem()
 	if m, ok := e.gomap[typ];ok{
 		var tabl, pk, fs, _ = m.Extract()
 		var ins = exp.Insert(tabl, fs...).Returning(pk...)
@@ -164,8 +163,7 @@ func (e *Engine)Insert(obj interface{}) error {
 // update 当前的设定是直接更新，所以无返回，但是——
 // TODO:如果返回的受影响数据不为一，记一个warning ，发一个error
 func (e *Engine)Update(obj interface{}) error {
-	var typv = reflect.TypeOf(obj).Elem()
-	var typ = &typv
+	var typ = reflect.TypeOf(obj).Elem()
 	if m, ok := e.gomap[typ];ok{
 		// 因为要填充，无论如何这里也要传入一个指针，不是指针的请自觉panic……
 		var val = reflect.ValueOf(obj).Elem()
@@ -198,8 +196,7 @@ func (e *Engine)Update(obj interface{}) error {
 // TODO:如果返回的受影响数据为0，记一个warning ，发一个error
 // 如果大于1，应该log一个Fail，发一个error，必要的话panic也是可以的……
 func (e *Engine)Delete(obj interface{}) error {
-	var typv = reflect.TypeOf(obj).Elem()
-	var typ = &typv
+	var typ = reflect.TypeOf(obj).Elem()
 	if m, ok := e.gomap[typ];ok{
 		// 因为要填充，无论如何这里也要传入一个指针，不是指针的请自觉panic……
 		var val = reflect.ValueOf(obj).Elem()
