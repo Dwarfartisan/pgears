@@ -1,14 +1,14 @@
-package gears
+package pgears
 
 import (
 	"errors"
 	"fmt"
 	"reflect"
-	"github.com/Dwarfartisan/pgears/exp"
+	"./exp"
 	"database/sql"
 )
 
-type fetchFunc func(interface{}, *reflect.Value) error
+type fetchFunc func(*interface{}, *reflect.Value) error
 // stype 指结构字段的类型，这个类型总是指的值类型，如果该字段为指针，就取其 Elem()
 // 判断原始类型是否是指针，看它是不是 NotNull 就可以了。
 type dbfield struct {
@@ -85,7 +85,11 @@ func selectFetch(notnull bool, fieldType *reflect.Type, tag reflect.StructTag) f
 		}
 	case reflect.Map:
 		if tag.Get("jsonto")=="map" {
-			return fetchJsonMap
+			if notnull {
+				return fetchJsonMap
+			}else{
+				return fetchJsonMapPtr
+			}
 		}
 	case reflect.Struct:
 		if tag.Get("jsonto")=="struct" {
@@ -114,6 +118,9 @@ type fieldmap struct {
 func NewFieldMap() *fieldmap {
 	return &fieldmap{make(map[string]*dbfield), make(map[string]*dbfield)}
 }
+func (fm *fieldmap)Length() int {
+	return len(fm.gomap)
+}
 func (fm *fieldmap)Set(field *dbfield){
 	fm.gomap[field.GoName] = field
 	fm.dbmap[field.DbName] = field
@@ -133,14 +140,14 @@ func (fm *fieldmap)DbGet(goname string) (*dbfield, bool) {
 	}
 }
 func (fm *fieldmap)GoKeys() []string {
-	var ret = make([]string, 0)
+	var ret = make([]string, 0, len(fm.gomap))
 	for key := range fm.gomap {
 		ret = append(ret, key)
 	}
 	return ret
 }
 func (fm *fieldmap)DbKeys() []string {
-	var ret = make([]string, 0)
+	var ret = make([]string, 0, len(fm.dbmap))
 	for key := range fm.dbmap {
 		ret = append(ret, key)
 	}
@@ -178,8 +185,8 @@ func NewDbTable(typ *reflect.Type, tablename string) *dbtable {
 // 的列表以及用于 where 的 筛选条件（即所有
 func (dbt *dbtable)Extract()(t *exp.Table, pk []exp.Exp, other []exp.Exp, cond exp.Exp) {
 	t = exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
-	pk = make([]exp.Exp, 0)
-	other = make([]exp.Exp, 0)
+	pk = make([]exp.Exp, 0, dbt.pk.Length())
+	other = make([]exp.Exp, 0, dbt.fields.Length())
 	for _, key := range dbt.fields.GoKeys() {
 		// 这里要取不是pk的
 		dbf, _:=dbt.fields.GoGet(key)
@@ -192,11 +199,11 @@ func (dbt *dbtable)Extract()(t *exp.Table, pk []exp.Exp, other []exp.Exp, cond e
 	}
 	var gokeys = dbt.pk.GoKeys()
 	var f,_ = dbt.pk.GoGet(gokeys[0])
-	cond = exp.Equal(t.Field(f.GoName), exp.Arg(0))
+	cond = exp.Equal(t.Field(f.GoName), exp.Arg(1))
 	if len(gokeys) > 1 {
 		for idx, key := range gokeys[1:] {
 			var _f, _ = dbt.pk.GoGet(key)
-			cond = exp.And(exp.Equal(t.Field(_f.GoName), exp.Arg(idx+1)),
+			cond = exp.And(exp.Equal(t.Field(_f.GoName), exp.Arg(idx+2)),
 				cond)
 		}
 	}
@@ -230,14 +237,14 @@ func (dbt *dbtable)makeLoads(){
 	dbt.load = makeFetchHelper(fields)
 }
 func makeFetchHelper(fieldmap map[string]*dbfield) structFetchFunc {
+	var l = len(fieldmap)
+	var slots = make([]interface{}, 0, l)
+	for i:=0; i<l; i++ {
+		var slot interface{}
+		slots = append(slots, &slot)
+	}
 	var refunc = func(rows *sql.Rows, obj interface{}){
-		var val = reflect.ValueOf(obj).Elem()
-		var l = len(fieldmap)
-		var slots = make([]interface{}, l)
-		for i:=0; i<l; i++ {
-			var slot interface{}
-			slots = append(slots, &slot)
-		}
+		var val = reflect.Indirect(reflect.ValueOf(obj))
 		rows.Scan(slots...)
 		var cols, _ = rows.Columns()
 		for idx, key := range cols {
@@ -246,8 +253,10 @@ func makeFetchHelper(fieldmap map[string]*dbfield) structFetchFunc {
 				continue
 			}
 			var fname = fdef.GoName
-			var field = val.FieldByName(fname)
-			fdef.Fetch(slots[idx], &field)
+			if ptr, ok := slots[idx].(*interface{}); ok {
+				var field = val.FieldByName(fname)
+				fdef.Fetch(ptr, &field)
+			}
 		}
 	}
 	return refunc

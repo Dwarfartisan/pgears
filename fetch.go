@@ -11,7 +11,7 @@
 // 可能为空的，提供 interface{} 到指针类型的填充，但是取出后调用者要自己判定是否nil，否则 panic 自负～
 // 原想给了 NullXxxx 类型的可Scan的数据库类型字段的，可以提供填充，后来一想调用者如果都自己用这一套了
 // 也就没 ORM 什么必要了吧……
-package gears
+package pgears
 
 import (
 	"fmt"
@@ -21,8 +21,8 @@ import (
 	"errors"
 )
 
-func fetchInt(f interface{}, to *reflect.Value)error{
-	switch val:=f.(type) {
+func fetchInt(f *interface{}, to *reflect.Value)error{
+	switch val:=(*f).(type) {
 	case int64:
 		to.SetInt(val)
 	case int:
@@ -34,11 +34,11 @@ func fetchInt(f interface{}, to *reflect.Value)error{
 	return nil
 }
 
-func fetchIntPtr(f interface{}, to *reflect.Value)error{
-	if f == nil {
+func fetchIntPtr(f *interface{}, to *reflect.Value)error{
+	if *f == nil {
 		to.Set(makeNil(*to))
 	}
-	switch val:=f.(type) {
+	switch val:=(*f).(type) {
 	case *int64:
 		var data int = int(*val)
 		to.Set(reflect.ValueOf(&data))
@@ -51,8 +51,8 @@ func fetchIntPtr(f interface{}, to *reflect.Value)error{
 	return nil
 }
 
-func fetchInt64(f interface{}, to *reflect.Value)error{
-	switch val:=f.(type) {
+func fetchInt64(f *interface{}, to *reflect.Value)error{
+	switch val:=(*f).(type) {
 	case int64:
 		to.SetInt(val)
 	case int:
@@ -65,11 +65,11 @@ func fetchInt64(f interface{}, to *reflect.Value)error{
 }
 
 // 这里的行为不是太确定，应该写个程序试一下。
-func fetchInt64Ptr(f interface{}, to *reflect.Value)error{
+func fetchInt64Ptr(f *interface{}, to *reflect.Value)error{
 	if f == nil {
 		to.Set(makeNil(*to))
 	}
-	switch val:=f.(type) {
+	switch val:=(*f).(type) {
 	case *int64:
 		to.Set(reflect.ValueOf(val))
 	case *int:
@@ -82,8 +82,8 @@ func fetchInt64Ptr(f interface{}, to *reflect.Value)error{
 	return nil
 }
 
-func fetchFloat64(f interface{}, to *reflect.Value)error{
-	switch val:=f.(type) {
+func fetchFloat64(f *interface{}, to *reflect.Value)error{
+	switch val:=(*f).(type) {
 	case float64:
 		to.SetFloat(val)
 	default:
@@ -94,11 +94,11 @@ func fetchFloat64(f interface{}, to *reflect.Value)error{
 }
 
 // 这里的行为不是太确定，应该写个程序试一下。
-func fetchFloat64Ptr(f interface{}, to *reflect.Value)error{
+func fetchFloat64Ptr(f *interface{}, to *reflect.Value)error{
 	if f == nil {
 		to.Set(makeNil(*to))
 	}
-	switch val:=f.(type) {
+	switch val:=(*f).(type) {
 	case *float64:
 		to.Set(reflect.ValueOf(val))
 	default:
@@ -109,8 +109,8 @@ func fetchFloat64Ptr(f interface{}, to *reflect.Value)error{
 }
 
 //其实string取出来的时候是[]byte
-func fetchString(f interface{}, to *reflect.Value)error{
-	if v, ok:=f.([]byte);ok{
+func fetchString(f *interface{}, to *reflect.Value)error{
+	if v, ok:=(*f).([]byte);ok{
 		var data = string(v)
 		to.SetString(data)
 	}else{
@@ -120,11 +120,11 @@ func fetchString(f interface{}, to *reflect.Value)error{
 	return nil
 }
 
-func fetchStringPtr(f interface{}, to *reflect.Value)error{
+func fetchStringPtr(f *interface{}, to *reflect.Value)error{
 	if f == nil {
 		to.Set(makeNil(*to))
 	}
-	if v, ok:=f.([]byte);ok{
+	if v, ok:=(*f).([]byte);ok{
 		var data = string(v)
 		to.Set(reflect.ValueOf(&data))
 	}else{
@@ -134,8 +134,8 @@ func fetchStringPtr(f interface{}, to *reflect.Value)error{
 	return nil
 }
 
-func fetchBool(f interface{}, to *reflect.Value)error{
-	if v, ok:=f.(bool);ok{
+func fetchBool(f *interface{}, to *reflect.Value)error{
+	if v, ok:=(*f).(bool);ok{
 		(*to).SetBool(v)
 	}else{
 		var message = fmt.Sprintf("%v is't a usable bool", f)
@@ -144,11 +144,11 @@ func fetchBool(f interface{}, to *reflect.Value)error{
 	return nil
 }
 
-func fetchBoolPtr(f interface{}, to *reflect.Value)error{
+func fetchBoolPtr(f *interface{}, to *reflect.Value)error{
 	if f == nil {
 		to.Set(makeNil(*to))
 	}
-	if v, ok:=f.(bool);ok{
+	if v, ok:=(*f).(bool);ok{
 		to.Set(reflect.ValueOf(&v))
 	}else{
 		var message = fmt.Sprintf("%v is't a usable bool", f)
@@ -157,8 +157,8 @@ func fetchBoolPtr(f interface{}, to *reflect.Value)error{
 	return nil
 }
 
-func fetchTime(f interface{}, to *reflect.Value)error{
-	if v, ok:=f.(time.Time);ok{
+func fetchTime(f *interface{}, to *reflect.Value)error{
+	if v, ok:=(*f).(time.Time);ok{
 		to.Set(reflect.ValueOf(v))
 	}else{
 		var message = fmt.Sprintf("%v is't a usable time", f)
@@ -167,11 +167,11 @@ func fetchTime(f interface{}, to *reflect.Value)error{
 	return nil
 }
 
-func fetchTimePtr(f interface{}, to *reflect.Value)error{
-	if f == nil {
+func fetchTimePtr(f *interface{}, to *reflect.Value)error{
+	if *f == nil {
 		to.Set(makeNil(*to))
 	}
-	if v, ok:=f.(time.Time);ok{
+	if v, ok:=(*f).(time.Time);ok{
 		to.Set(reflect.ValueOf(&v))
 	}else{
 		var message = fmt.Sprintf("%v is't a usable bool", f)
@@ -182,11 +182,8 @@ func fetchTimePtr(f interface{}, to *reflect.Value)error{
 
 // map 本身就是引用对象，不过为了避免出现空指针panic，这里总是会构造一个
 // 新的 map
-func fetchJsonMap(f interface{}, to *reflect.Value)error{
-	if f == nil {
-		to.Set(makeNil(*to))
-	}
-	if v, ok:=f.([]byte);ok{
+func fetchJsonMap(f *interface{}, to *reflect.Value)error{
+	if v, ok:=(*f).([]byte);ok{
 		var data interface{}
 		json.Unmarshal(v, &data)
 		to.Set(reflect.ValueOf(data))
@@ -197,9 +194,24 @@ func fetchJsonMap(f interface{}, to *reflect.Value)error{
 	return nil
 }
 
+func fetchJsonMapPtr(f *interface{}, to *reflect.Value)error{
+	if f == nil {
+		to.Set(makeNil(*to))
+	}
+	if v, ok:=(*f).([]byte);ok{
+		var data interface{}
+		json.Unmarshal(v, &data)
+		to.Set(reflect.ValueOf(&data))
+	}else{
+		var message = fmt.Sprintf("%v is't a usable json buffer", f)
+		return errors.New(message)
+	}
+	return nil
+}
+
 // 为防止出现没有分配空间的情况，这里提供指针和传值两种
-func fetchJsonStruct(f interface{}, to *reflect.Value)error{
-	if v, ok:=f.([]byte);ok{
+func fetchJsonStruct(f *interface{}, to *reflect.Value)error{
+	if v, ok:=(*f).([]byte);ok{
 		var data = to.Interface()
 		json.Unmarshal(v, &data)
 		to.Set(reflect.ValueOf(data))
@@ -211,11 +223,11 @@ func fetchJsonStruct(f interface{}, to *reflect.Value)error{
 }
 
 // 为防止出现没有分配空间的情况，这里提供指针和传值两种
-func fetchJsonPtr(f interface{}, to *reflect.Value)error{
-	if f == nil {
+func fetchJsonPtr(f *interface{}, to *reflect.Value)error{
+	if *f == nil {
 		to.Set(makeNil(*to))
 	}
-	if v, ok:=f.([]byte);ok{
+	if v, ok:=(*f).([]byte);ok{
 		var data = reflect.New(to.Type().Elem()).Interface()
 		json.Unmarshal(v, &data)
 		to.Set(reflect.ValueOf(data))

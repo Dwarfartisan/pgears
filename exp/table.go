@@ -40,6 +40,7 @@ func (t *Table)Eval(env Env)string{
 	if t.DbName == "" {
 		t.DbName = env.TynaToTana(t.GoName)
 	}
+
 	if t.AliasName == "" {
 		return t.DbName
 	} else {

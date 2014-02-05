@@ -1,4 +1,4 @@
-package gears
+package pgears
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"database/sql"
 	_ "github.com/lib/pq"
 	"github.com/lib/pq"
-	"github.com/Dwarfartisan/pgears/exp"
+	"./exp"
 	"errors"
 )
 
@@ -36,7 +36,6 @@ func CreateEngine(url string) (*Engine, error){
 }
 func (e *Engine)Prepare(exp exp.Exp)(*Query, error){
 	var sql = exp.Eval(e)
-	fmt.Println("sql: ", sql)
 	var stmt, err = e.DB.Prepare(sql)
 	if err != nil {
 		return nil, err
@@ -103,12 +102,13 @@ func (e *Engine)Select(obj interface{}) error {
 		if err!= nil {
 			return err
 		}
-		var args = make([]interface{}, len(pk))
+		var args = make([]interface{}, 0)
 		// 因为要填充，无论如何这里也要传入一个指针，不是指针的请自觉panic……
 		var val = reflect.ValueOf(obj).Elem()
 		for _,p := range pk {
 			if pf,ok := p.(*exp.Field); ok{
-				var arg interface{} = val.FieldByName(pf.GoName).Interface()
+				var field, _ = typ.FieldByName(pf.GoName)
+				var arg interface{} = ExtractField(val.FieldByName(pf.GoName), field)
 				args = append(args, arg)
 			}
 		}
@@ -137,7 +137,7 @@ func (e *Engine)Insert(obj interface{}) error {
 			return err
 		}
 		var l = len(pk)
-		var args = make([]interface{}, l)
+		var args = make([]interface{}, 0, l)
 		// 因为要填充，无论如何这里也要传入一个指针，不是指针的请自觉panic……
 		var val = reflect.ValueOf(obj).Elem()
 		for _,p := range pk {
@@ -168,7 +168,7 @@ func (e *Engine)Update(obj interface{}) error {
 		// 因为要填充，无论如何这里也要传入一个指针，不是指针的请自觉panic……
 		var val = reflect.ValueOf(obj).Elem()
 		var tabl, pk, fs, cond = m.Extract()
-		var set = make([]exp.Exp, len(fs))
+		var set = make([]exp.Exp, 0, len(fs))
 		for idx, f := range fs {
 			set = append(set, exp.Equal(f, exp.Arg(idx)))
 		}
@@ -177,7 +177,7 @@ func (e *Engine)Update(obj interface{}) error {
 		if err != nil {
 			return err
 		}
-		var args = make([]interface{}, len(pk))
+		var args = make([]interface{}, 0, len(pk))
 		for _,p := range pk {
 			if pf,ok := p.(*exp.Field); ok {
 				var arg interface{} = val.FieldByName(pf.GoName).Interface()
@@ -206,7 +206,7 @@ func (e *Engine)Delete(obj interface{}) error {
 		if err != nil {
 			return err
 		}
-		var args = make([]interface{}, len(pk))
+		var args = make([]interface{}, 0, len(pk))
 		for _,p := range pk {
 			if pf,ok := p.(*exp.Field); ok {
 				var arg interface{} = val.FieldByName(pf.GoName).Interface()
@@ -238,7 +238,7 @@ func (q *Query)Q(args... interface{}) (*ResultSet, error){
 // 暂时只是根据顺序提取字段，将来有可能会增加根据字段名和参数名的对照进行传递的功能
 func (q *Query)QBy(arg interface{}) (*ResultSet, error){
 	var val = reflect.ValueOf(arg)	
-	var args = make([]interface{}, val.NumField())
+	var args = make([]interface{}, 0, val.NumField())
 	for i:=0;i<val.NumField();i++{
 		var field = val.Field(i)
 		if field.CanInterface() {
@@ -259,11 +259,11 @@ type ResultSet struct{
 //Scan a row and fetch into the object
 func (r *ResultSet)FetchOne(obj interface{})error{
 	var val = reflect.ValueOf(obj)
-	var args = make([]interface{}, val.NumField())
+	var args = make([]interface{}, 0, val.NumField())
 	for i:=0;i<val.NumField();i++{
-		var field = val.Field(i)
-		if field.CanInterface() {
-			args = append(args, field.Interface())
+		if val.Field(i).CanSet() {
+			var arg interface{}
+			args = append(args, &arg)
 		}
 	}
 	err := r.Scan(args...)
@@ -292,7 +292,9 @@ func (r *ResultSet)FetchOne(obj interface{})error{
 			field = fieldValue
 		}
 		var fetch = selectFetch(isptr, &ftype, sf.Tag)
-		fetch(args[i], &field)
+		if slot, ok := args[i].(*interface{}); ok {
+			fetch(slot, &field)
+		}
 	}
 	return nil
 }
@@ -304,7 +306,7 @@ func (r *ResultSet)Scalar(slot interface{}) error {
 		return err
 	}
 	var l = len(cols)
-	var slots = make([]interface{}, l)
+	var slots = make([]interface{}, 0, l)
 	slots = append(slots, slot)
 	for i:=0; i<l; i++ {
 		var slt interface{}

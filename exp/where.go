@@ -11,5 +11,5 @@ func whereExp(exp Exp)*where{
 	return &where{exp}
 }
 func (w *where)Eval(env Env)string{
-	return fmt.Sprintf("where %s", w.exp.Eval(env))
+	return fmt.Sprintf("WHERE %s", w.exp.Eval(env))
 }

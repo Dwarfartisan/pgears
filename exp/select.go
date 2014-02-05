@@ -22,7 +22,7 @@ type Sel struct{
 	offset *int
 }
 func SelectThem(fields... string) *Sel {
-	var fs = make([]Exp, len(fields))
+	var fs = make([]Exp, 0)
 	for _, fname := range fields {
 		fs = append(fs, &Field{nil, fname, ""})
 	}
@@ -37,7 +37,14 @@ func SelectThem(fields... string) *Sel {
 	}
 }
 func Select(fields... Exp) *Sel {
-	return &Sel{
+	return &Sel{selects:fields,
+		from: nil,
+		join:nil,
+		where:nil,
+		groupby:nil,
+		having:nil,
+		orderby:nil,
+		limit:nil,
 	}
 }
 
@@ -65,7 +72,7 @@ func (sel *Sel)Where(exp Exp) *Sel{
 }
 func (sel *Sel)GroupBy(fields... Exp) *Sel{
 	if sel.groupby == nil {
-		sel.groupby = make([]Exp, len(fields))
+		sel.groupby = make([]Exp, 0)
 	}
 	for _, f := range fields{
 		sel.groupby = append(sel.groupby, f)
@@ -98,7 +105,7 @@ func (sel *Sel)Offset(offset int) *Sel{
 func (sel *Sel)Eval(env Env)string{
 	var command = "SELECT "
 	if sel.selects != nil {
-		var fields = make([]string, len(sel.selects))
+		var fields = make([]string, 0)
 		for _, f := range sel.selects {
 			fields = append(fields, f.Eval(env))
 		}
@@ -113,10 +120,10 @@ func (sel *Sel)Eval(env Env)string{
 		}
 	}
 	if sel.where != nil {
-		command += (" WHERE "+sel.where.Eval(env))
+		command += (" " + sel.where.Eval(env))
 	}
 	if sel.groupby != nil {
-		var groups = make([]string, len(sel.groupby))
+		var groups = make([]string, 0)
 		for _, g := range sel.groupby {
 			groups = append(groups, g.Eval(env))
 		}
@@ -126,7 +133,7 @@ func (sel *Sel)Eval(env Env)string{
 		command += " HAVING "+sel.having.Eval(env)
 	}
 	if sel.orderby != nil {
-		var orderby = make([]string, len(sel.orderby))
+		var orderby = make([]string, 0)
 		for _, o := range sel.groupby {
 			orderby = append(orderby, o.Eval(env))
 		}
