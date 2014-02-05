@@ -51,7 +51,6 @@ func CreateEngine(url string) (*Engine, error){
 func (e *Engine)Prepare(exp exp.Exp)(*Query, error){
 	var parser = NewParser(e)
 	var sql = exp.Eval(parser)
-	fmt.Println("prepare:", sql)
 	var stmt, err = e.DB.Prepare(sql)
 	if err != nil {
 		return nil, err
@@ -236,7 +235,8 @@ func (e *Engine)Delete(obj interface{}) error {
 		var args = make([]interface{}, 0, len(pk))
 		for _,p := range pk {
 			if pf,ok := p.(*exp.Field); ok {
-				var arg interface{} = val.FieldByName(pf.GoName).Interface()
+				var field, _ = typ.FieldByName(pf.GoName)
+				var arg interface{} = ExtractField(val.FieldByName(pf.GoName), field)
 				args = append(args, arg)
 			}
 		}
