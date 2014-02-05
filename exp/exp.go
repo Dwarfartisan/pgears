@@ -19,6 +19,8 @@ type Env interface {
 	TynaToTana(typename string) string
 	// Struct Field Name to Table Column Name
 	FinaToCona(typename string, fieldname string) string
+	Scope() Exp
+	SetScope(Exp)
 }
 
 type Exp interface {
@@ -66,19 +68,17 @@ func (e less)Eval(env Env)string{
 }
 
 type and struct{
-	x Exp
-	y Exp
+	x, y Exp
 }
 func And(x, y Exp) Exp{
 	return &and{x, y}
 }
-func (a *and)Eval(env Env)string{
+func (a and)Eval(env Env)string{
 	return fmt.Sprintf("(%s) and (%s)", a.x.Eval(env), a.y.Eval(env))
 }
 
 type or struct{
-	x Exp
-	y Exp
+	x, y Exp
 }
 func Or(x, y Exp) Exp{
 	return &or{x, y}
@@ -121,7 +121,7 @@ func(ts *timestamp)Eval(env Env) string{
 
 // 之所以用 arg 而不是 parameter ， 完全是为了少写几个字母……
 type arg struct{
-	order int
+	Order int
 }
 // 我也觉得自动生成序列号比较省力气啊。不过想了半天， $%d 就是为了可以指定参数插入位置啊，
 // 自动生成顺序就白瞎了啊……
@@ -130,7 +130,35 @@ func Arg(order int) *arg {
 	return &arg{order}
 }
 func (a arg)Eval(env Env)string{
-	return fmt.Sprintf("$%d", a.order)
+	return fmt.Sprintf("$%d", a.Order)
+}
+// 写到 Update 一个对象的时候发现需要一个方法，将引擎中的条件表达式的所有条件参数的
+// order 增加一个整数。这种问题真是太暗黑了……
+func IncOrder(e Exp, step int){
+	switch ex := e.(type) {
+	case *equal:
+		IncOrder((*ex).x, step)
+		IncOrder((*ex).y, step)
+	case *notequal:
+		IncOrder((*ex).x, step)
+		IncOrder((*ex).y, step)
+	case *and:
+		IncOrder((*ex).x, step)
+		IncOrder((*ex).y, step)
+	case *or:
+		IncOrder((*ex).x, step)
+		IncOrder((*ex).y, step)
+	case *great:
+		IncOrder((*ex).x, step)
+		IncOrder((*ex).y, step)
+	case *less:
+		IncOrder((*ex).x, step)
+		IncOrder((*ex).y, step)
+	case *not:
+		IncOrder((*ex).exp, step)
+	case *arg:
+		ex.Order += step
+	}
 }
 
 type function struct{
@@ -155,7 +183,7 @@ type not struct{
 func Not(exp Exp) *not{
 	return &not{exp}
 }
-func (n *not)Eval(env Env) string{
+func (n not)Eval(env Env) string{
 	return fmt.Sprintf("not (%s)", n.exp.Eval(env))
 }
 

@@ -102,7 +102,10 @@ func (sel *Sel)Offset(offset int) *Sel{
 	sel.offset = &offset
 	return sel
 }
-func (sel *Sel)Eval(env Env)string{
+func (sel Sel)Eval(env Env)string{
+	var scope = env.Scope()
+	env.SetScope(sel)
+	defer env.SetScope(scope)
 	var command = "SELECT "
 	if sel.selects != nil {
 		var fields = make([]string, 0)

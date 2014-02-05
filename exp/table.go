@@ -79,5 +79,10 @@ func (f *Field)Eval(env Env)string{
 	if f.DbName=="" {
 		f.DbName = env.FinaToCona(f.Table.GoName, f.GoName)
 	}
-	return fmt.Sprintf("%s.%s", f.Table.Alias(), f.DbName)
+	var scope = env.Scope()
+	if _, ok := scope.(Sel); ok {
+		return fmt.Sprintf("%s.%s", f.Table.Alias(), f.DbName)
+	} else {
+		return f.DbName
+	}
 }

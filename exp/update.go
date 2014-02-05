@@ -24,12 +24,15 @@ func (upd *Upd)Where(exp Exp) *Upd{
 	return upd
 }
 func (upd *Upd)Eval(env Env) string {
+	var scope = env.Scope()
+	env.SetScope(upd)
+	defer env.SetScope(scope)
 	var command = fmt.Sprintf("UPDATE %s ", upd.tabl.Eval(env))
 	// 虽说要check nil但是如果没有set你update个啥啊……
 	// TODO: 此处应当有 panic
 	if upd.set != nil {
 		command += "SET "
-		var sets = make([]string, len(upd.set))
+		var sets = make([]string, 0, len(upd.set))
 		for _, s := range upd.set {
 			sets = append(sets, s.Eval(env))
 		}

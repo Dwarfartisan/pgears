@@ -13,7 +13,7 @@ type Ins struct{
 }
 
 func Insert(table *Table, fields... Exp) *Ins{
-	return &Ins{table, fields, make([]Exp, len(fields)), nil}
+	return &Ins{table, fields, make([]Exp, 0, len(fields)), nil}
 }
 func (ins *Ins)Values(args... Exp) *Ins{
 	for _, a := range args{
@@ -32,31 +32,36 @@ func (ins *Ins)Returning(fields... Exp) *Ins{
 	return ins
 }
 func (ins *Ins)Eval(env Env) string{
+	var scope = env.Scope()
+	env.SetScope(ins)
+	defer env.SetScope(scope)
 	var sql = "INSERT INTO "
 	sql += ins.into.Eval(env)
 	sql += "("
-	var fields = make([]string, len(ins.fields))
+	var fields = make([]string, 0, len(ins.fields))
 	for _, f := range ins.fields {
-		fields = append(fields, f.Eval(env))
+		var field = f.Eval(env)
+		fields = append(fields, field)
 	}
 	sql += strings.Join(fields, ", ")
 	sql += ") values("
 	if len(ins.values)==0 {
 		for i:=0;i<len(ins.fields);i++{
-			ins.values = append(ins.values, Arg(i))
+			ins.values = append(ins.values, Arg(i+1))
 		}
 	}
-	var values = make([]string, len(ins.values))
+	var values = make([]string, 0, len(ins.values))
 	for _, v := range ins.values {
 		values = append(values, v.Eval(env))
 	}
+	sql += strings.Join(values, ", ")
 	sql += ")"
 	if len(ins.returning) > 0 {
-		var res = make([]string, len(ins.returning))
+		var res = make([]string, 0, len(ins.returning))
 		for _, ref := range ins.returning {
 			res = append(res, ref.Eval(env))
 		}
-		sql += "returning "
+		sql += " returning "
 		sql += strings.Join(res, ", ")
 	}
 

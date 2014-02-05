@@ -10,6 +10,20 @@ import (
 	"errors"
 )
 
+type Parser struct {
+	*Engine
+	scope exp.Exp
+}
+func NewParser(engine *Engine)(*Parser) {
+	return &Parser{engine, nil}
+}
+func (p *Parser)Scope() exp.Exp {
+	return p.scope
+}
+func (p *Parser)SetScope(exp exp.Exp){
+	p.scope = exp
+}
+
 // 我原想把所有已经 Prepare过的stmt缓存下来，但是接口还没想清楚，
 // 这样是否经济也不确定，先实现一个缓存结构体反射结果的吧，这部分行为
 // 已经基本能确认了。接下来再研究数据库层的优化。
@@ -35,7 +49,9 @@ func CreateEngine(url string) (*Engine, error){
 	}, nil
 }
 func (e *Engine)Prepare(exp exp.Exp)(*Query, error){
-	var sql = exp.Eval(e)
+	var parser = NewParser(e)
+	var sql = exp.Eval(parser)
+	fmt.Println("prepare:", sql)
 	var stmt, err = e.DB.Prepare(sql)
 	if err != nil {
 		return nil, err
@@ -134,15 +150,17 @@ func (e *Engine)Insert(obj interface{}) error {
 		var ins = exp.Insert(tabl, fs...).Returning(pk...)
 		var query, err = e.Prepare(ins)
 		if err != nil{
+			fmt.Println(err)
 			return err
 		}
 		var l = len(pk)
 		var args = make([]interface{}, 0, l)
 		// 因为要填充，无论如何这里也要传入一个指针，不是指针的请自觉panic……
 		var val = reflect.ValueOf(obj).Elem()
-		for _,p := range pk {
-			if pf, ok := p.(*exp.Field);ok {
-				var arg interface{} = val.FieldByName(pf.GoName).Interface()
+		for _,f := range fs {
+			if f, ok := f.(*exp.Field);ok {
+				var field, _ = typ.FieldByName(f.GoName)
+				var arg interface{} = ExtractField(val.FieldByName(f.GoName), field)
 				args = append(args, arg)
 			}
 		}
@@ -167,22 +185,31 @@ func (e *Engine)Update(obj interface{}) error {
 	if m, ok := e.gomap[typ];ok{
 		// 因为要填充，无论如何这里也要传入一个指针，不是指针的请自觉panic……
 		var val = reflect.ValueOf(obj).Elem()
+		var typ = val.Type()
 		var tabl, pk, fs, cond = m.Extract()
+		var args = make([]interface{}, 0, len(pk)+len(fs))
 		var set = make([]exp.Exp, 0, len(fs))
+		var step = len(fs)
+		exp.IncOrder(cond, step)
 		for idx, f := range fs {
-			set = append(set, exp.Equal(f, exp.Arg(idx)))
+			set = append(set, exp.Equal(f, exp.Arg(idx+1)))
+			if fs,ok := f.(*exp.Field); ok {
+				var field, _ = typ.FieldByName(fs.GoName)
+				var arg interface{} = ExtractField(val.FieldByName(fs.GoName), field)
+				args = append(args, arg)
+			}
+		}
+		for _,p := range pk {
+			if pf,ok := p.(*exp.Field); ok {
+				var field, _ = typ.FieldByName(pf.GoName)
+				var arg interface{} = ExtractField(val.FieldByName(pf.GoName), field)
+				args = append(args, arg)
+			}
 		}
 		var upd = exp.Update(tabl).Set(set...).Where(cond)
 		var query, err = e.Prepare(upd)
 		if err != nil {
 			return err
-		}
-		var args = make([]interface{}, 0, len(pk))
-		for _,p := range pk {
-			if pf,ok := p.(*exp.Field); ok {
-				var arg interface{} = val.FieldByName(pf.GoName).Interface()
-				args = append(args, arg)
-			}
 		}
 		query.Exec(args...)
 	}else{

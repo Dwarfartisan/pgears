@@ -13,6 +13,9 @@ func (del *Del)Where(where Exp) *Del{
 	return del
 }
 func (del *Del)Eval(env Env)string{
+	var scope = env.Scope()
+	env.SetScope(del)
+	defer env.SetScope(scope)
 	var sql = "DELETE FROM "
 	sql += del.from.Eval(env)
 	// 虽然允许生成无where的delete但是还请慎重的使用这样的语句呀
