@@ -1,4 +1,4 @@
-# PgGears
+# PGears
 
 Toolkits for easy to use PostgreSQL in Golang
 
