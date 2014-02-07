@@ -48,6 +48,9 @@ func CreateEngine(url string) (*Engine, error){
 		make(map[string]*dbtable),
 	}, nil
 }
+//我们可以预先注册一个类型，然后使用这个接口构造与之对应的查询，当我们调用最终
+//结果集的FetchOne，会在内部调用对应的merge
+//LoadOne 对应 load
 func (e *Engine)PrepareFor(typeName string, exp exp.Exp)(*Query, error){
 	var table = e.gonmap[typeName]
 	var parser = NewParser(e)
@@ -85,6 +88,8 @@ func (e *Engine)MapStructTo(s interface{}, tablename string){
 // 适用于部分内容的填充、更新等操作
 // 走这个接口注册类型表示它不是完整的对应数据库中的表。所以可以用表里的数据填充结构，但是
 // 不能反过来依赖其中的结构去推断和维护表
+// 这个接口显然可以将类型注册到不存在的表，这超出了我最初的设计。建议使用这种表名的时候，
+// 起一个跟业务有关的，容易记忆的名字
 func (e *Engine)RegistStruct(s interface{}, tablename string){
 	var val = reflect.ValueOf(s)
 	var typ = val.Type()
@@ -312,6 +317,9 @@ type ResultSet struct{
 //此处返回值应为error，但是fetcher构造的时候没有加入，这个将来应该补全
 func (r *ResultSet)FetchOne(obj interface{}){
 	r.table.merge(r.Rows, obj)
+}
+func (r *ResultSet)LoadOne(obj interface{}){
+	r.table.load(r.Rows, obj)
 }
 // get the first column in current row, like scalar method
 // in .net clr's ado.net
