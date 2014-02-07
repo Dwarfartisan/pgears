@@ -154,7 +154,7 @@ func (fm *fieldmap)DbKeys() []string {
 	return ret
 }
 
-type structFetchFunc func(rows *sql.Rows, obj interface{})
+type structFetchFunc func(row *sql.Rows, obj interface{})
 type dbtable struct {
 	tablename string
 	gotype *reflect.Type

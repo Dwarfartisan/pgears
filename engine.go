@@ -48,14 +48,15 @@ func CreateEngine(url string) (*Engine, error){
 		make(map[string]*dbtable),
 	}, nil
 }
-func (e *Engine)Prepare(exp exp.Exp)(*Query, error){
+func (e *Engine)PrepareFor(typeName string, exp exp.Exp)(*Query, error){
+	var table = e.gonmap[typeName]
 	var parser = NewParser(e)
 	var sql = exp.Eval(parser)
 	var stmt, err = e.DB.Prepare(sql)
 	if err != nil {
 		return nil, err
 	}
-	return &Query{stmt}, nil
+	return &Query{stmt, table}, nil
 }
 // 将类型映射到明确指定的表，遵循一个简单的规则：
 // - tag 可以指定类型，不过一般不用，int/int64 对应 integer，
@@ -105,15 +106,17 @@ func (e *Engine)FinaToCona(typename string, fieldname string) string{
 	var field, _ = (*dbt).fields.GoGet(fieldname)
 	return field.DbName
 }
-// 这里要验证传入的obj的类型是否已经注册，但是应该允许Select匿名类型，这个接口要另外设计
+// 这里要验证传入的obj的类型是否已经注册，但是应该允许匿名类型，这个接口要另外设计
 // 目前操作匿名类型可以先拼接一个 Exp ，然后让Engine 去 prepare 出对应的 Query，
 // 然后用 Query 和 Result 操作
-func (e *Engine)Select(obj interface{}) error {
+func (e *Engine)Fetch(obj interface{}) error {
 	var typ  = reflect.TypeOf(obj).Elem()
 	if m, ok := e.gomap[typ];ok {
 		var tabl, pk, fs, cond = m.Extract()
 		var sel = exp.Select(fs...).From(tabl).Where(cond)
-		query,err := e.Prepare(sel)
+		var parser = NewParser(e)
+		var sql = sel.Eval(parser)
+		stmt,err := e.Prepare(sql)
 		if err!= nil {
 			return err
 		}
@@ -127,7 +130,7 @@ func (e *Engine)Select(obj interface{}) error {
 				args = append(args, arg)
 			}
 		}
-		rset,err := query.Query(args...)
+		rset,err := stmt.Query(args...)
 		if err != nil {
 			return err
 		}
@@ -147,7 +150,9 @@ func (e *Engine)Insert(obj interface{}) error {
 	if m, ok := e.gomap[typ];ok{
 		var tabl, pk, fs, _ = m.Extract()
 		var ins = exp.Insert(tabl, fs...).Returning(pk...)
-		var query, err = e.Prepare(ins)
+		var parser = NewParser(e)
+		var sql = ins.Eval(parser)
+		var stmt, err = e.Prepare(sql)
 		if err != nil{
 			fmt.Println(err)
 			return err
@@ -163,7 +168,7 @@ func (e *Engine)Insert(obj interface{}) error {
 				args = append(args, arg)
 			}
 		}
-		rset,err := query.Query(args...)
+		rset,err := stmt.Query(args...)
 		if err != nil {
 			return err
 		}
@@ -206,11 +211,13 @@ func (e *Engine)Update(obj interface{}) error {
 			}
 		}
 		var upd = exp.Update(tabl).Set(set...).Where(cond)
-		var query, err = e.Prepare(upd)
+		var parser = NewParser(e)
+		var sql = upd.Eval(parser)
+		var stmt, err = e.Prepare(sql)
 		if err != nil {
 			return err
 		}
-		query.Exec(args...)
+		stmt.Exec(args...)
 	}else{
 		var message = fmt.Sprintf("%v.%v is't a regiested type", 
 			fullGoName(typ))
@@ -228,7 +235,9 @@ func (e *Engine)Delete(obj interface{}) error {
 		var val = reflect.ValueOf(obj).Elem()
 		var tabl, pk, _, cond = m.Extract()
 		var del = exp.Delete(tabl).Where(cond)
-		var query, err = e.Prepare(del)
+		var parser = NewParser(e)
+		var sql = del.Eval(parser)
+		var stmt, err = e.Prepare(sql)
 		if err != nil {
 			return err
 		}
@@ -240,7 +249,7 @@ func (e *Engine)Delete(obj interface{}) error {
 				args = append(args, arg)
 			}
 		}
-		query.Query(args...)
+		stmt.Query(args...)
 	}else{
 		var message = fmt.Sprintf("%v.%v is't a regiested type", 
 			fullGoName(typ))
@@ -248,14 +257,25 @@ func (e *Engine)Delete(obj interface{}) error {
 	}
 	return nil
 }
+// 用于类似 select count(*) from table where cond 这种只需要获取单个结果的查询
+// 程序逻辑直接获取单行的第一列，如果查询实际返回的结果集格式不匹配……大概会出错……吧……
+func (engine *Engine)Scalar(expr exp.Exp, args... interface{}) (interface{}, error) {
+	var parser = NewParser(engine)
+	var sql = expr.Eval(parser)
+	var row = engine.QueryRow(sql, args...)
+	var data interface{}
+	var err = row.Scan(&data)
+	return data, err
+}
 
 type Query struct {
 	*sql.Stmt
+	table *dbtable
 }
 func (q *Query)Q(args... interface{}) (*ResultSet, error){
 	var rows, err = q.Query(args)
 	if err == nil {
-		return &ResultSet{rows}, nil
+		return &ResultSet{rows, q.table}, nil
 	} else {
 		return nil, err
 	}
@@ -265,16 +285,18 @@ func (q *Query)Q(args... interface{}) (*ResultSet, error){
 // 暂时只是根据顺序提取字段，将来有可能会增加根据字段名和参数名的对照进行传递的功能
 func (q *Query)QBy(arg interface{}) (*ResultSet, error){
 	var val = reflect.ValueOf(arg)	
+	var typ = val.Type()
 	var args = make([]interface{}, 0, val.NumField())
 	for i:=0;i<val.NumField();i++{
 		var field = val.Field(i)
-		if field.CanInterface() {
-			args = append(args, field.Interface())
+		if field.CanSet() {
+			arg = ExtractField(field, typ.Field(i))
+			args = append(args, &arg)
 		}
 	}
 	var rows, err = q.Query(args)
 	if err == nil {
-		return &ResultSet{rows}, nil
+		return &ResultSet{rows, q.table}, nil
 	} else {
 		return nil, err
 	}
@@ -282,48 +304,14 @@ func (q *Query)QBy(arg interface{}) (*ResultSet, error){
 
 type ResultSet struct{
 	*sql.Rows
+	table *dbtable
 }
 //Scan a row and fetch into the object
-func (r *ResultSet)FetchOne(obj interface{})error{
-	var val = reflect.ValueOf(obj)
-	var args = make([]interface{}, 0, val.NumField())
-	for i:=0;i<val.NumField();i++{
-		if val.Field(i).CanSet() {
-			var arg interface{}
-			args = append(args, &arg)
-		}
-	}
-	err := r.Scan(args...)
-	if err != nil {
-		return err
-	}
-	var objValue = reflect.ValueOf(obj)
-	var objType = reflect.TypeOf(obj)
-	cols, err := r.Columns()
-	if err != nil {
-		return err
-	}
-	var (
-		field reflect.Value
-		isptr bool
-	)
-	for i:=0; i< len(cols); i++{
-		var sf = objType.Field(i)
-		var fieldValue = objValue.Field(i)
-		var ftype = sf.Type
-		if ftype.Kind() == reflect.Ptr {
-			isptr = true
-			field = fieldValue.Elem()
-		} else {
-			isptr = false
-			field = fieldValue
-		}
-		var fetch = selectFetch(isptr, &ftype, sf.Tag)
-		if slot, ok := args[i].(*interface{}); ok {
-			fetch(slot, &field)
-		}
-	}
-	return nil
+//严格来说，这里传入的对象应该严格匹配prepare时使用的类型，
+//但是从理论来讲，似乎任何结构相同的都可以。有待测试
+//此处返回值应为error，但是fetcher构造的时候没有加入，这个将来应该补全
+func (r *ResultSet)FetchOne(obj interface{}){
+	r.table.merge(r.Rows, obj)
 }
 // get the first column in current row, like scalar method
 // in .net clr's ado.net
