@@ -110,7 +110,8 @@ func (sel Sel)Eval(env Env)string{
 	if sel.selects != nil {
 		var fields = make([]string, 0)
 		for _, f := range sel.selects {
-			fields = append(fields, f.Eval(env))
+			var fname = f.Eval(env)
+			fields = append(fields, fname)
 		}
 		command += strings.Join(fields, ", ")
 	}

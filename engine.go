@@ -278,7 +278,7 @@ type Query struct {
 	table *dbtable
 }
 func (q *Query)Q(args... interface{}) (*ResultSet, error){
-	var rows, err = q.Query(args)
+	var rows, err = q.Query(args...)
 	if err == nil {
 		return &ResultSet{rows, q.table}, nil
 	} else {
@@ -295,11 +295,11 @@ func (q *Query)QBy(arg interface{}) (*ResultSet, error){
 	for i:=0;i<val.NumField();i++{
 		var field = val.Field(i)
 		if field.CanSet() {
-			arg = ExtractField(field, typ.Field(i))
-			args = append(args, &arg)
+			var _arg = ExtractField(field, typ.Field(i))
+			args = append(args, &_arg)
 		}
 	}
-	var rows, err = q.Query(args)
+	var rows, err = q.Query(args...)
 	if err == nil {
 		return &ResultSet{rows, q.table}, nil
 	} else {

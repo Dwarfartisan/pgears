@@ -60,7 +60,7 @@ func (t *Table)Field(f string)*Field{
 }
 func (t *Table)Fields(fields string)[]Exp{
 	var fs = strings.Split(fields, ",")
-	var ret = make([]Exp, len(fs))
+	var ret = make([]Exp, 0, len(fs))
 	for _, field := range fs {
 		ret = append(ret, t.Field(strings.TrimSpace(field)))
 	}
