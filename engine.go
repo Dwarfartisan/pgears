@@ -92,7 +92,7 @@ func (e *Engine)MapStructTo(s interface{}, tablename string){
 // 起一个跟业务有关的，容易记忆的名字
 func (e *Engine)RegistStruct(s interface{}, tablename string){
 	var val = reflect.ValueOf(s)
-	var typ = val.Type()
+	var typ = val.Type().Elem()
 	var table = NewDbTable(&typ, tablename)
 	e.gomap[typ] = table
 	var fullname = fullGoName(typ)

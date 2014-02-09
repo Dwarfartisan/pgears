@@ -63,7 +63,7 @@ func selectFetch(notnull bool, fieldType *reflect.Type, tag reflect.StructTag) f
 		if notnull {
 			return fetchBool
 		} else {
-				return fetchBoolPtr
+			return fetchBoolPtr
 		}
 	case reflect.Int:
 		if notnull {
