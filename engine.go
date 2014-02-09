@@ -69,7 +69,7 @@ func (e *Engine)PrepareFor(typeName string, exp exp.Exp)(*Query, error){
 // - tag 包含 PK:"true" 的是主键，可以有复合主键，无关类型
 // - tag 包含 jsonto:"map" 的 映射到 map[string]interface{}
 // - tag 包含 jsonto:"struct" 的映射到结构，具体的结构类型是一个 reflect.Type,
-// 保存在 dbfield 类型的 sttype 字段
+// 保存在 dbfield 类型的 gotype 字段
 // - 如果字段定义为值类型，表示对应的是 not null
 // - 如果定义为指针类型，表示对应的是可以为null的字段，读取后的使用应该谨慎
 // - tag 中的 field:"xxxx" 指定了对应的数据库子段名，这个不能省，一定要写。

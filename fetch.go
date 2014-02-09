@@ -151,7 +151,7 @@ func fetchBoolPtr(f *interface{}, to *reflect.Value)error{
 	if v, ok:=(*f).(bool);ok{
 		to.Set(reflect.ValueOf(&v))
 	}else{
-		var message = fmt.Sprintf("%v is't a usable bool", f)
+		var message = fmt.Sprintf("%v is't a usable bool ptr", f)
 		return errors.New(message)
 	}
 	return nil
@@ -174,7 +174,7 @@ func fetchTimePtr(f *interface{}, to *reflect.Value)error{
 	if v, ok:=(*f).(time.Time);ok{
 		to.Set(reflect.ValueOf(&v))
 	}else{
-		var message = fmt.Sprintf("%v is't a usable bool", f)
+		var message = fmt.Sprintf("%v is't a usable time ptr", f)
 		return errors.New(message)
 	}
 	return nil

@@ -51,7 +51,7 @@ func NewDbField(fieldStruct *reflect.StructField) *dbfield{
 			ret.DbType= "JSON"
 		} else if fullGoName(typ)=="time.Time"{
 			ret.DbType="TIMESTAMP"
-		}
+		} 
 	}
 	return &ret
 }
@@ -59,6 +59,12 @@ func NewDbField(fieldStruct *reflect.StructField) *dbfield{
 func selectFetch(notnull bool, fieldType *reflect.Type, tag reflect.StructTag) fetchFunc{
 	var ft = *fieldType
 	switch ft.Kind(){
+	case reflect.Bool:
+		if notnull {
+			return fetchBool
+		} else {
+				return fetchBoolPtr
+		}
 	case reflect.Int:
 		if notnull {
 			return fetchInt
