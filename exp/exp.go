@@ -243,3 +243,16 @@ func Snippet(s string) *snippet{
 func (s *snippet)Eval(env Env) string {
 	return *s.str
 }
+
+// 虽然理论上说这个内涵的 field 肯定会是field，但是这里姑且还是假定为 exp.Exp
+type desc struct {
+	field Exp
+}
+// Desc 生成一个用于orderby desc的表达式
+func Desc(field Exp)Exp{
+	return &{field}
+}
+
+func (f field)Eval(env Env) string{
+	return field.Eval(env)+" desc"
+}
