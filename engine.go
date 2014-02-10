@@ -154,7 +154,9 @@ func (e *Engine)Insert(obj interface{}) error {
 	var typ = reflect.TypeOf(obj).Elem()
 	if m, ok := e.gomap[typ];ok{
 		var tabl, pk, fs, _ = m.Extract()
-		fs = append(fs, pk)
+		for _, p := range pk{
+			fs = append(fs, p)
+		}
 		var ins = exp.Insert(tabl, fs...)
 		var parser = NewParser(e)
 		var sql = ins.Eval(parser)
