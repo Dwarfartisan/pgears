@@ -176,7 +176,7 @@ func (e *Engine)Insert(obj interface{}) error {
 				args = append(args, arg)
 			}
 		}
-		_,err := stmt.Query(args...)
+		_, err = stmt.Query(args...)
 		if err != nil {
 			return err
 		}
