@@ -250,7 +250,7 @@ type desc struct {
 }
 // Desc 生成一个用于orderby desc的表达式
 func Desc(field Exp)Exp{
-	return &{field}
+	return &desc{field}
 }
 
 func (f field)Eval(env Env) string{
