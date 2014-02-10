@@ -149,8 +149,46 @@ func (e *Engine)Fetch(obj interface{}) error {
 		return errors.New(message)
 	}
 }
-// insert 当前的设定是insert仅插入非主键数据，所有主键从数据库加载load后的
+// insert 的设定是 insert 插入所有字段，包括主键，有时候我们需要在应用层生成主键值，就使用这个逻辑
 func (e *Engine)Insert(obj interface{}) error {
+	var typ = reflect.TypeOf(obj).Elem()
+	if m, ok := e.gomap[typ];ok{
+		var tabl, pk, fs, _ = m.Extract()
+		fs = appen(fs, pk)
+		var ins = exp.Insert(tabl, fs...)
+		var parser = NewParser(e)
+		var sql = ins.Eval(parser)
+		var stmt, err = e.Prepare(sql)
+		if err != nil{
+			fmt.Println(err)
+			return err
+		}
+		var l = len(pk)
+		var args = make([]interface{}, 0, l)
+		// 因为要填充，无论如何这里也要传入一个指针，不是指针的请自觉panic……
+		var val = reflect.ValueOf(obj).Elem()
+		for _,f := range fs {
+			if f, ok := f.(*exp.Field);ok {
+				var field, _ = typ.FieldByName(f.GoName)
+				var arg interface{} = ExtractField(val.FieldByName(f.GoName), field)
+				args = append(args, arg)
+			}
+		}
+		rset,err := stmt.Query(args...)
+		if err != nil {
+			return err
+		}
+		// 因为是完全从应用层取数据，也就不存在对返回结果集的处理，但是这里其实应该校验操作行数
+		return nil
+	}else{
+		var message = fmt.Sprintf("%v.%v is't a regiested type", 
+			fullGoName(typ))
+		return errors.New(message)
+	}
+}
+// insert merge 的设定是insert仅插入非主键数据，所有主键从数据库加载load后的
+// 这个逻辑用于那些主键在数据库层生成的场合，例如自增 id
+func (e *Engine)InsertMerge(obj interface{}) error {
 	var typ = reflect.TypeOf(obj).Elem()
 	if m, ok := e.gomap[typ];ok{
 		var tabl, pk, fs, _ = m.Extract()
