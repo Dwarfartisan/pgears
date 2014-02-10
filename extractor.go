@@ -56,6 +56,8 @@ func Extract(val reflect.Value) interface{} {
 	}
 	var ret interface{}
 	switch typ.Kind() {
+	case reflect.Bool():
+		ret = val.Bool()
 	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
 		ret = val.Int()
 	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
