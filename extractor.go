@@ -20,6 +20,8 @@ func SelectExtractor(val reflect.Value) func(reflect.Value)interface{} {
 	}
 	var ret func(reflect.Value)interface{}
 	switch typ.Kind() {
+	case reflect.Bool:
+		ret = ExtractBool
 	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
 		ret = ExtractInt
 	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
@@ -70,6 +72,11 @@ func Extract(val reflect.Value) interface{} {
 		var message = fmt.Sprintf("I don't know how to extract a %v", v)
 		panic(message)
 	}
+	return ret
+}
+
+func ExtractBool(val reflect.Value) (ret interface{}) {
+	ret = val.Bool()
 	return ret
 }
 
