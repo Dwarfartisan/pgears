@@ -253,6 +253,6 @@ func Desc(field Exp)Exp{
 	return &desc{field}
 }
 
-func (f field)Eval(env Env) string{
-	return field.Eval(env)+" desc"
+func (d desc)Eval(env Env) string{
+	return d.field.Eval(env)+" desc"
 }
