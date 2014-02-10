@@ -48,12 +48,12 @@ func ExtractField(val reflect.Value, field reflect.StructField) interface{}{
 }
 
 func Extract(val reflect.Value) interface{} {
-	if val.IsNil() {
-		return nil
-	}
 	var v = val
 	var typ = v.Type()
 	if typ.Kind() == reflect.Ptr {
+		if val.IsNil() {
+			return nil
+		}
 		var v = reflect.Indirect(v)
 		typ = v.Type()
 	}
