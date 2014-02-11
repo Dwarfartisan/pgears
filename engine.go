@@ -102,8 +102,12 @@ func (e *Engine)RegistStruct(s interface{}, tablename string){
 // 暂时不支持schema
 // NOTE: 需要注意的是当前使用type的Name()，其中包含packages名
 func (e *Engine)TynaToTana(typename string) string{
-	var dbt = e.gonmap[typename]
-	return dbt.tablename
+	if dbt,ok := e.gonmap[typename]; ok {
+		return dbt.tablename
+	} else {
+		var message = typename + " not found in registed go types"
+		panic(message)
+	}
 }
 // Struct Field Name to Table Column Name
 func (e *Engine)FinaToCona(typename string, fieldname string) string{
