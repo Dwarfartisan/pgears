@@ -99,7 +99,11 @@ func selectFetch(notnull bool, fieldType *reflect.Type, tag reflect.StructTag) f
 		}
 	case reflect.Struct:
 		if tag.Get("jsonto")=="struct" {
-			return fetchJsonStruct
+			if notnull {
+				return fetchJsonStruct
+			}else{
+				return fetchJsonStructPtr
+			}
 		} 
 		if (fullGoName(ft)=="time.Time") {
 			if notnull {
@@ -254,14 +258,12 @@ func makeFetchHelper(fieldmap map[string]*dbfield) structFetchFunc {
 		rows.Scan(slots...)
 		var cols, _ = rows.Columns()
 		for idx, key := range cols {
-			var fdef, ok = fieldmap[key]
-			if !ok {
-				continue
-			}
-			var fname = fdef.GoName
-			if ptr, ok := slots[idx].(*interface{}); ok {
-				var field = val.FieldByName(fname)
-				fdef.Fetch(ptr, &field)
+			if fdef, ok := fieldmap[key]; ok {
+				var fname = fdef.GoName
+				if ptr, ok := slots[idx].(*interface{}); ok {
+					var field = val.FieldByName(fname)
+					fdef.Fetch(ptr, &field)
+				}
 			}
 		}
 	}

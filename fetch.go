@@ -198,12 +198,17 @@ func fetchJsonMapPtr(f *interface{}, to *reflect.Value)error{
 	if f == nil {
 		to.Set(makeNil(*to))
 	}
+
 	if v, ok:=(*f).([]byte);ok{
-		var data interface{}
+		var data map[string]interface{}
 		json.Unmarshal(v, &data)
-		to.Set(reflect.ValueOf(data))
+
+		// message := fmt.Sprintf("try fetch %v into %v", data, to)
+		// panic(message)
+
+		to.Set(reflect.ValueOf(&data))
 	}else{
-		var message = fmt.Sprintf("%v is't a usable json buffer", f)
+		var message = fmt.Sprintf("%v is't a usable json buffer ptr", f)
 		return errors.New(message)
 	}
 	return nil
@@ -223,7 +228,7 @@ func fetchJsonStruct(f *interface{}, to *reflect.Value)error{
 }
 
 // 为防止出现没有分配空间的情况，这里提供指针和传值两种
-func fetchJsonPtr(f *interface{}, to *reflect.Value)error{
+func fetchJsonStructPtr(f *interface{}, to *reflect.Value)error{
 	if *f == nil {
 		to.Set(makeNil(*to))
 	}
