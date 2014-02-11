@@ -115,9 +115,16 @@ func (e *Engine)TynaToTana(typename string) string{
 }
 // Struct Field Name to Table Column Name
 func (e *Engine)FinaToCona(typename string, fieldname string) string{
-	var dbt = e.gonmap[typename]
-	var field, _ = (*dbt).fields.GoGet(fieldname)
-	return field.DbName
+	if dbt,ok = e.gonmap[typename]; ok {
+		var field, err = (*dbt).fields.GoGet(fieldname)
+		if err != nil {
+			panic(err)
+		}
+		return field.DbName
+	} else {
+		var message = fmt.Sprintf("%s has't been found in %s", typename, fieldname)
+		panic(message)
+	}
 }
 // 这里要验证传入的obj的类型是否已经注册，但是应该允许匿名类型，这个接口要另外设计
 // 目前操作匿名类型可以先拼接一个 Exp ，然后让Engine 去 prepare 出对应的 Query，
