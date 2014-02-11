@@ -158,6 +158,8 @@ func (e *Engine)Fetch(obj interface{}) error {
 		}
 		if rset.Next() {
 			m.merge(rset, obj)
+		} else {
+			return NewNotFound(obj)
 		}
 		return nil
 	}else{
