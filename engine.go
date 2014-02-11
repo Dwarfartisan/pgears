@@ -121,6 +121,7 @@ func (e *Engine)FinaToCona(typename string, fieldname string) string{
 		} else {
 			var message = fmt.Sprintf("field %s has't been found in table %s", 
 				fieldname, dbt.tablename)
+			panic(message)
 		}
 	} else {
 		var message = fmt.Sprintf("type %s has't been found in regist", typename)
