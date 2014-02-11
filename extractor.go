@@ -40,7 +40,7 @@ func SelectExtractor(val reflect.Value) func(reflect.Value)interface{} {
 }
 
 func ExtractField(val reflect.Value, field reflect.StructField) interface{}{
-	itf interface{} := Extract(val)
+	itf := Extract(val)
 	if field.Tag.Get("jsonto") != "" {
 		itf, err := json.Marshal(itf)
 		if err != nil {
