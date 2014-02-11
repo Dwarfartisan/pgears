@@ -201,7 +201,7 @@ func fetchJsonMapPtr(f *interface{}, to *reflect.Value)error{
 	if v, ok:=(*f).([]byte);ok{
 		var data interface{}
 		json.Unmarshal(v, &data)
-		to.Set(reflect.ValueOf(&data))
+		to.Set(reflect.ValueOf(data))
 	}else{
 		var message = fmt.Sprintf("%v is't a usable json buffer", f)
 		return errors.New(message)
