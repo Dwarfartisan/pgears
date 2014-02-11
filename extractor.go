@@ -58,25 +58,25 @@ func Extract(val reflect.Value) interface{} {
 		if val.IsNil() {
 			return nil
 		}
-		var v = reflect.Indirect(v)
+		v = reflect.Indirect(v)
 		typ = v.Type()
 	}
 	var ret interface{}
 	switch typ.Kind() {
 	case reflect.Bool:
-		ret = val.Bool()
+		ret = v.Bool()
 	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
-		ret = val.Int()
+		ret = v.Int()
 	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
-		ret = val.Uint()
+		ret = v.Uint()
 	case reflect.Float64, reflect.Float32:
-		ret = val.Float()
+		ret = v.Float()
 	case reflect.String:
-		ret = val.String()
+		ret = v.String()
 	case reflect.Complex64, reflect.Complex128:
-		ret = val.Complex()
+		ret = v.Complex()
 	case reflect.Struct, reflect.Map, reflect.Slice, reflect.Array, reflect.Chan, reflect.Func, reflect.Interface:
-		ret = val.Interface()
+		ret = v.Interface()
 	default:
 		var message = fmt.Sprintf("I don't know how to extract a %v", v)
 		panic(message)

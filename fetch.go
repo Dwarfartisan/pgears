@@ -202,10 +202,6 @@ func fetchJsonMapPtr(f *interface{}, to *reflect.Value)error{
 	if v, ok:=(*f).([]byte);ok{
 		var data map[string]interface{}
 		json.Unmarshal(v, &data)
-
-		// message := fmt.Sprintf("try fetch %v into %v", data, to)
-		// panic(message)
-
 		to.Set(reflect.ValueOf(&data))
 	}else{
 		var message = fmt.Sprintf("%v is't a usable json buffer ptr", f)
