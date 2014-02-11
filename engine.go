@@ -52,7 +52,7 @@ func CreateEngine(url string) (*Engine, error){
 //结果集的FetchOne，会在内部调用对应的merge
 //LoadOne 对应 load
 func (e *Engine)PrepareFor(typeName string, exp exp.Exp)(*Query, error){
-	if table,ok = e.gonmap[typeName]; ok{
+	if table,ok := e.gonmap[typeName]; ok{
 		var parser = NewParser(e)
 		var sql = exp.Eval(parser)
 		var stmt, err = e.DB.Prepare(sql)
