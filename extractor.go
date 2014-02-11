@@ -118,3 +118,38 @@ func ExtractJsonMap(val reflect.Value) (ret interface{}) {
 	ret, _ = json.Marshal(val.Interface())
 	return ret
 }
+
+func ExtractBoolPtr(val reflect.Value) (ret interface{}) {
+	ret = reflect.Indirect(val).Bool()
+	return ret
+}
+
+func ExtractIntPtr(val reflect.Value) (ret interface{}) {
+	ret = reflect.Indirect(val).Int()
+	return ret
+}
+
+func ExtractUintPtr(val reflect.Value) (ret interface{}) {
+	ret = reflect.Indirect(val).Uint()
+	return ret
+}
+
+func ExtractFloatPtr(val reflect.Value) (ret interface{}) {
+	ret = reflect.Indirect(val).Float()
+	return ret
+}
+
+func ExtractStringPtr(val reflect.Value) (ret interface{}) {
+	ret = reflect.Indirect(val).String()
+	return ret
+}
+// all object can be box to a interface{}
+func ExtractObjectPtr(val reflect.Value) (ret interface{}) {
+	ret = reflect.Indirect(val).Interface()
+	return ret
+}
+
+func ExtractJsonMapPtr(val reflect.Value) (ret interface{}) {
+	ret, _ = json.Marshal(reflect.Indirect(val).Interface())
+	return ret
+}
