@@ -65,6 +65,13 @@ func (e *Engine)PrepareFor(typeName string, exp exp.Exp)(*Query, error){
 		panic(message)
 	}
 }
+//这个接口不做预设的fetch等功夫，如果我们只需要做简单的查询，或者要自己手动静态化，
+//就可以走这个接口
+func (e *Engine)PrepareSQL(exp exp.Exp)(*sql.Stmt, error){
+	var parser = NewParser(e)
+	var sql = exp.Eval(parser)
+	return e.DB.Prepare(sql)
+}
 // 将类型映射到明确指定的表，遵循一个简单的规则：
 // - tag 可以指定类型，不过一般不用，int/int64 对应 integer，
 // double 对应 float64, text 对应 string。

@@ -28,7 +28,7 @@ func NewTable(goname string) *Table{
 func TableBy(typ reflect.Type) *Table{
 	return &Table{fmt.Sprintf("%s.%s", typ.PkgPath(), typ.Name()), "", ""}
 }
-// 直接指定类型名和表名。一般用不到这个方法，主要是给engine调用的
+// 直接指定类型名和表名。
 func TableAs(goname, dbname string) *Table{
 	return &Table{goname, dbname, ""}
 }
