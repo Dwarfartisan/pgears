@@ -52,14 +52,18 @@ func CreateEngine(url string) (*Engine, error){
 //结果集的FetchOne，会在内部调用对应的merge
 //LoadOne 对应 load
 func (e *Engine)PrepareFor(typeName string, exp exp.Exp)(*Query, error){
-	var table = e.gonmap[typeName]
-	var parser = NewParser(e)
-	var sql = exp.Eval(parser)
-	var stmt, err = e.DB.Prepare(sql)
-	if err != nil {
-		return nil, err
+	if table,ok = e.gonmap[typeName]; ok{
+		var parser = NewParser(e)
+		var sql = exp.Eval(parser)
+		var stmt, err = e.DB.Prepare(sql)
+		if err != nil {
+			return nil, err
+		}
+		return &Query{stmt, table}, nil
+	} else {
+		message := typeName + " not found"
+		panic(message)
 	}
-	return &Query{stmt, table}, nil
 }
 // 将类型映射到明确指定的表，遵循一个简单的规则：
 // - tag 可以指定类型，不过一般不用，int/int64 对应 integer，
