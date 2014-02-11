@@ -115,8 +115,8 @@ func (e *Engine)TynaToTana(typename string) string{
 }
 // Struct Field Name to Table Column Name
 func (e *Engine)FinaToCona(typename string, fieldname string) string{
-	if dbt,ok = e.gonmap[typename]; ok {
-		var field, err := (*dbt).fields.GoGet(fieldname)
+	if dbt,ok := e.gonmap[typename]; ok {
+		var field, err = (*dbt).fields.GoGet(fieldname)
 		if err != nil {
 			panic(err)
 		}
