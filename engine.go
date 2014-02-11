@@ -116,13 +116,14 @@ func (e *Engine)TynaToTana(typename string) string{
 // Struct Field Name to Table Column Name
 func (e *Engine)FinaToCona(typename string, fieldname string) string{
 	if dbt,ok := e.gonmap[typename]; ok {
-		var field, err = (*dbt).fields.GoGet(fieldname)
-		if err != nil {
-			panic(err)
+		if field, ok := (*dbt).fields.GoGet(fieldname); ok {
+			return field.DbName
+		} else {
+			var message = fmt.Sprintf("field %s has't been found in table %s", 
+				fieldname, dbt.tablename)
 		}
-		return field.DbName
 	} else {
-		var message = fmt.Sprintf("%s has't been found in %s", typename, fieldname)
+		var message = fmt.Sprintf("type %s has't been found in regist", typename)
 		panic(message)
 	}
 }
