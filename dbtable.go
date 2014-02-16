@@ -97,6 +97,14 @@ func selectFetch(notnull bool, fieldType *reflect.Type, tag reflect.StructTag) f
 				return fetchJsonMapPtr
 			}
 		}
+	case reflect.Slice:
+		if tag.Get("jsonto")=="bytes" {
+			if notnull {
+				return fetchByteSlice
+			}else{
+				return fetchByteSlicePtr
+			}
+		}
 	case reflect.Struct:
 		if tag.Get("jsonto")=="struct" {
 			if notnull {

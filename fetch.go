@@ -134,6 +134,29 @@ func fetchStringPtr(f *interface{}, to *reflect.Value)error{
 	return nil
 }
 
+func fetchByteSlice(f *interface{}, to *reflect.Value)error{
+	if v, ok:=(*f).([]byte);ok{
+		to.Set(reflect.ValueOf(v))
+	}else{
+		var message = fmt.Sprintf("%v is't a usable []byte", f)
+		return errors.New(message)
+	}
+	return nil
+}
+
+func fetchByteSlicePtr(f *interface{}, to *reflect.Value)error{
+	if f == nil {
+		to.Set(makeNil(*to))
+	}
+	if v, ok:=(*f).([]byte);ok{
+		to.Set(reflect.ValueOf(&v))
+	}else{
+		var message = fmt.Sprintf("%v is't a usable *[]", f)
+		return errors.New(message)
+	}
+	return nil
+}
+
 func fetchBool(f *interface{}, to *reflect.Value)error{
 	if v, ok:=(*f).(bool);ok{
 		(*to).SetBool(v)
