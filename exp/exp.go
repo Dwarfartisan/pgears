@@ -112,9 +112,10 @@ func(i *integer)Eval(env Env)string{
 type timestamp struct{
 	data time.Time
 }
-func TimeStamp(data time.Time) Exp {
+func Timestamp(data time.Time) Exp {
 	return &timestamp{data}
 }
+//FIXME: 这个操作不对，应该模仿pq的做法
 func(ts *timestamp)Eval(env Env) string{
 	return fmt.Sprintf("'%v'::Timestamp", ts.data)
 }
@@ -255,4 +256,29 @@ func Desc(field Exp)Exp{
 
 func (d desc)Eval(env Env) string{
 	return d.field.Eval(env)+" desc"
+}
+
+type count struct {
+	fields []Exp
+	isAll bool
+}
+// TODO: postgresql 是不是允许count多个字段列啊……
+func Count(fields... Exp)Exp{
+	return &count{fields, false}
+}
+// count(*)
+func Counts()Exp{
+	return &count{[]Exp{}, true}
+}
+func (d count)Eval(env Env) string{
+	if d.isAll {
+		return "count(*)"
+	}else{
+		fs := make([]string, 0, len(d.fields))
+		for _, f := range d.fields {
+			fs = append(fs, f.Eval(env))
+		}
+		fields := strings.Join(fs, ",")
+		return fmt.Sprintf("count(%s)", fields)
+	}
 }
