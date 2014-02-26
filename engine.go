@@ -123,7 +123,7 @@ func (e *Engine)TynaToTana(typename string) string{
 // Struct Field Name to Table Column Name
 func (e *Engine)FinaToCona(typename string, fieldname string) string{
 	if dbt,ok := e.gonmap[typename]; ok {
-		if field, ok := (*dbt).fields.GoGet(fieldname); ok {
+		if field, ok := (*dbt).Fields.GoGet(fieldname); ok {
 			return field.DbName
 		} else {
 			var message = fmt.Sprintf("field %s has't been found in table %s", 
@@ -164,7 +164,7 @@ func (e *Engine)Fetch(obj interface{}) error {
 			return err
 		}
 		if rset.Next() {
-			m.merge(rset, obj)
+			m.returning(rset, obj)
 		} else {
 			return NewNotFound(obj)
 		}
@@ -214,30 +214,28 @@ func (e *Engine)Insert(obj interface{}) error {
 		return errors.New(message)
 	}
 }
-// insert merge 的设定是insert仅插入非主键数据，所有主键从数据库加载load后的
-// 这个逻辑用于那些主键在数据库层生成的场合，例如自增 id
+// insert merge 的设定是insert仅插入非dbgen数据，所有dbgen字段从数据库加载load后的
+// 这个逻辑用于那些主键在数据库层生成的场合，例如自增 id 主键，服务端uuid，时间戳等
 func (e *Engine)InsertMerge(obj interface{}) error {
 	var typ = reflect.TypeOf(obj).Elem()
 	if m, ok := e.gomap[typ];ok{
-		var tabl, pk, fs, _ = m.Extract()
-		var ins = exp.Insert(tabl, fs...).Returning(pk...)
+		var ins, names = m.MergeInsertExpr()
 		var parser = NewParser(e)
 		var sql = ins.Eval(parser)
+		fmt.Println(sql)
 		var stmt, err = e.Prepare(sql)
 		if err != nil{
 			fmt.Println(err)
 			return err
 		}
-		var l = len(pk)
+		var l = len(names)
 		var args = make([]interface{}, 0, l)
 		// 因为要填充，无论如何这里也要传入一个指针，不是指针的请自觉panic……
 		var val = reflect.ValueOf(obj).Elem()
-		for _,f := range fs {
-			if f, ok := f.(*exp.Field);ok {
-				var field, _ = typ.FieldByName(f.GoName)
-				var arg interface{} = ExtractField(val.FieldByName(f.GoName), field)
+		for _,name := range names {
+			var field, _ = typ.FieldByName(name)
+			var arg interface{} = ExtractField(val.FieldByName(name), field)
 				args = append(args, arg)
-			}
 		}
 		rset,err := stmt.Query(args...)
 		if err != nil {
@@ -296,7 +294,7 @@ func (e *Engine)Update(obj interface{}) error {
 	}
 	return nil
 }
-// Dele 当前的设定是根据pk删除，所以无返回，但是——
+// Delete 当前的设定是根据pk删除，所以无返回，但是——
 // TODO:如果返回的受影响数据为0，记一个warning ，发一个error
 // 如果大于1，应该log一个Fail，发一个error，必要的话panic也是可以的……
 func (e *Engine)Delete(obj interface{}) error {
@@ -382,10 +380,10 @@ type ResultSet struct{
 //但是从理论来讲，似乎任何结构相同的都可以。有待测试
 //此处返回值应为error，但是fetcher构造的时候没有加入，这个将来应该补全
 func (r *ResultSet)FetchOne(obj interface{}){
-	r.table.merge(r.Rows, obj)
+	r.table.returning(r.Rows, obj)
 }
 func (r *ResultSet)LoadOne(obj interface{}){
-	r.table.load(r.Rows, obj)
+	r.table.all(r.Rows, obj)
 }
 // get the first column in current row, like scalar method
 // in .net clr's ado.net
