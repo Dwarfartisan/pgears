@@ -188,7 +188,7 @@ func (e *Engine)Insert(obj interface{}) error {
 		var sql = ins.Eval(parser)
 		var stmt, err = e.Prepare(sql)
 		if err != nil{
-			fmt.Println(err)
+			panic(err)
 			return err
 		}
 		var l = len(pk)
@@ -222,10 +222,9 @@ func (e *Engine)InsertMerge(obj interface{}) error {
 		var ins, names = m.MergeInsertExpr()
 		var parser = NewParser(e)
 		var sql = ins.Eval(parser)
-		fmt.Println(sql)
 		var stmt, err = e.Prepare(sql)
 		if err != nil{
-			fmt.Println(err)
+			panic(err)
 			return err
 		}
 		var l = len(names)
