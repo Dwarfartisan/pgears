@@ -164,7 +164,7 @@ func (e *Engine)Fetch(obj interface{}) error {
 			return err
 		}
 		if rset.Next() {
-			m.returning(rset, obj)
+			m.npk(rset, obj)
 		} else {
 			return NewNotFound(obj)
 		}
