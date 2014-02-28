@@ -1,6 +1,13 @@
-// Extract data from reflect.Value into a interface
+// extractor.go 中都是用于将反射对象的内含值提取为 interface{} 的工具函数。
+// 这些函数在使用 pgears 的时候通常不会直接用到。将其公开主要是考虑这种功能可能会
+// 广泛应用于我们的项目，不妨作为一种通用工具提供出来。每个函数的业务并不复杂，只是
+// 提取对应类型的值。这里我们准备了两种操作，一个是直接返回 interface{} ，一个是
+// 返回对应其类型的 Extractor ，后一个可以允许将类型解析操作 Prepare，提高运行
+// 效率
+// 
 // It's NOT reflect.Value.Interface(). The method only valid on struct but
 // a basic type like int64 
+// 
 // Limit by refelct.Value, only convert to int64, float64, string, 
 // and collections or struct
 package pgears
@@ -11,6 +18,8 @@ import (
 	"encoding/json"
 )
 
+
+// SelectExtractor 是 Extractor 的选择器。
 func SelectExtractor(val reflect.Value) func(reflect.Value)interface{} {
 	var v = val
 	var typ = v.Type()
@@ -39,6 +48,7 @@ func SelectExtractor(val reflect.Value) func(reflect.Value)interface{} {
 	return ret
 }
 
+// 这个是动态选择的封装接口。除了内置类型的extract，它还提供了对json类型的提取。
 func ExtractField(val reflect.Value, field reflect.StructField) interface{}{
 	itf := Extract(val)
 	if field.Tag.Get("jsonto") != "" {
@@ -51,6 +61,7 @@ func ExtractField(val reflect.Value, field reflect.StructField) interface{}{
 	return itf
 }
 
+// Extract 函数是针对内置类型及其指针的 Extractor
 func Extract(val reflect.Value) interface{} {
 	var v = val
 	var typ = v.Type()
@@ -143,6 +154,7 @@ func ExtractStringPtr(val reflect.Value) (ret interface{}) {
 	ret = reflect.Indirect(val).String()
 	return ret
 }
+
 // all object can be box to a interface{}
 func ExtractObjectPtr(val reflect.Value) (ret interface{}) {
 	ret = reflect.Indirect(val).Interface()

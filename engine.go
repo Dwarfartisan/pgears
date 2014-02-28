@@ -1,3 +1,5 @@
+// engine.go 中包含了对外的基本接口。核心是 Engine 类型，它可以用于单个对象的CURD操作，也可以
+// 生成预备好类型的查询集。或者通过 Engine 更方便的访问 pg 组件。
 package pgears
 
 import (
@@ -10,6 +12,8 @@ import (
 	"errors"
 )
 
+// Parser 是用于解析参数的独立环境，这样不同语句的 Prepare 可以安全的异步化。将来可
+// 能会通过这个组件实现命名参数。
 type Parser struct {
 	*Engine
 	scope exp.Exp

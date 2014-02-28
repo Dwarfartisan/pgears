@@ -1,5 +1,11 @@
-// TODO：普通的表达式没有处理字符串转义，需要接受外部传入的数据的话，请一定参数化
-// TODO: Stringer 接口应该改为exp接口，exp.evel接受engine参数
+// exp 包中是用于 SQL 语句生成的各种组件
+//
+// exp.go 中保存了 exp 包的一些未分类组件
+// 
+// TODO 普通的表达式没有处理字符串转义，需要接受外部传入的数据的话，请一定参数化
+//
+// Stringer 接口应该改为exp接口，exp.evel接受engine参数
+// 
 // 目前还没有对纯文本文法中的命名做映射，要享受转换的能力，请使用table和field类型
 package exp
 
@@ -8,6 +14,8 @@ import (
 	"time"
 	"strings"
 	"regexp"
+
+	"github.com/lib/pq"
 )
 
 var argFinder,_ = regexp.Compile("([^\\$]\\$\\d)|(^\\$d)")
@@ -15,7 +23,7 @@ var dollar,_ = regexp.Compile("\\$\\$")
 
 type Env interface {
 	// Type Name to Table Name
-	// NOTE: 需要注意的是当前使用type的Name()，其中包含packages名
+	// NOTE: 需要注意的是当前使用type的 Name()，其中包含 packages 名
 	TynaToTana(typename string) string
 	// Struct Field Name to Table Column Name
 	FinaToCona(typename string, fieldname string) string
@@ -87,14 +95,17 @@ func (o or)Eval(env Env)string{
 	return fmt.Sprintf("(%s) or (%s)", o.x.Eval(env), o.y.Eval(env))
 }
 
-// text 就是 PostgreSQL 的 text 类型。由于作者太懒，先用这个代替所有的文本和字符串类型用吧，
-// 在 PG 里其实一般的规模好像也问题不大……
 type text struct{
 	data string
 }
+// Text 函数用于生成text类型的表达式。
+// text 就是 PostgreSQL 的 text 类型。由于作者太懒，先用这个代替所有的文本和字符串类型用吧，
+// 在 PG 里其实一般的规模好像也问题不大……
 func Text(data string) Exp{
 	return &text{data}
 }
+
+// 从 text 对象到 SQL 片段的解析函数实现
 func(t *text)Eval(env Env)string{
 	return fmt.Sprintf("'%s'", t.data)
 }
@@ -102,9 +113,11 @@ func(t *text)Eval(env Env)string{
 type integer struct{
 	data int
 }
+// Integer 函数生成 integer 类型表达式，这个 integer 指 PostgreSQL 中的 integer 类型
 func Integer(data int) Exp{
 	return &integer{data}
 }
+// 从 integer 对象到 SQL 片段的解析函数实现
 func(i *integer)Eval(env Env)string{
 	return fmt.Sprintf("%d", i.data)
 }
@@ -112,12 +125,25 @@ func(i *integer)Eval(env Env)string{
 type timestamp struct{
 	data time.Time
 }
+// Timestamp 函数用于生成 timestamp 类型的表达式。
+// timestamp 类型即 PostgreSQL 的 timestamp 时间戳。由于作者太懒，目前还没有 Date 
+// 和 Datetime 类型的支持。另外
 func Timestamp(data time.Time) Exp {
 	return &timestamp{data}
 }
-//FIXME: 这个操作不对，应该模仿pq的做法
+// 从 时间戳对象到 SQL 片段的解析函数实现
 func(ts *timestamp)Eval(env Env) string{
-	return fmt.Sprintf("'%v'::Timestamp", ts.data)
+	dbtime := pq.NullTime{ts.data, true}
+	val, err := dbtime.Value()
+	if err != nil {
+		panic(err)
+	} else {
+		if ret,ok := val.([]byte);ok{
+			return string(ret)
+		} else {
+			panic(ts.data)
+		}
+	}
 }
 
 // 之所以用 arg 而不是 parameter ， 完全是为了少写几个字母……
@@ -133,8 +159,10 @@ func Arg(order int) *arg {
 func (a arg)Eval(env Env)string{
 	return fmt.Sprintf("$%d", a.Order)
 }
-// 写到 Update 一个对象的时候发现需要一个方法，将引擎中的条件表达式的所有条件参数的
-// order 增加一个整数。这种问题真是太暗黑了……
+
+// IncOrder 其实在 pgears 之外应该不太有机会用到，这个是内部生成表达式的时候偶尔
+// 需要调整表达式中参数的 order，这个就是起这种作用的，其实如果全命名化了也就没这个问题了。
+// 之所以公开是因为 Engine 会用到。
 func IncOrder(e Exp, step int){
 	switch ex := e.(type) {
 	case *equal:
