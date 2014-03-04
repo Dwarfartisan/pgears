@@ -1,6 +1,8 @@
-// TODO：还没有处理字符串转义，先不要实用，会被注入
-// TODO: Stringer 接口应该改为exp接口，exp.evel接受env参数
-// NOTE:Table 的 name 应该是模型的类型名而非表名，表名只在注册模型的时候显式出现
+// select.go 文件提供以 Sel 类型为核心的 Select 语句生成功能
+// 
+// NOTE
+// 
+// Table 的 name 应该是模型的类型名而非表名，表名只在注册模型的时候显式出现
 // 
 package exp
 

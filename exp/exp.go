@@ -2,11 +2,11 @@
 //
 // exp.go 中保存了 exp 包的一些未分类组件
 // 
-// TODO 普通的表达式没有处理字符串转义，需要接受外部传入的数据的话，请一定参数化
-//
-// Stringer 接口应该改为exp接口，exp.evel接受engine参数
+// TODO 
 // 
-// 目前还没有对纯文本文法中的命名做映射，要享受转换的能力，请使用table和field类型
+// 普通的表达式没有处理字符串转义，需要接受外部传入的数据的话，请一定参数化
+//
+// 目前还没有对纯文本文法中的命名做映射，要享受转换的能力，请使用 table 和 field 类型
 package exp
 
 import (
@@ -127,7 +127,7 @@ type timestamp struct{
 }
 // Timestamp 函数用于生成 timestamp 类型的表达式。
 // timestamp 类型即 PostgreSQL 的 timestamp 时间戳。由于作者太懒，目前还没有 Date 
-// 和 Datetime 类型的支持。另外
+// 和 Datetime 类型的支持。
 func Timestamp(data time.Time) Exp {
 	return &timestamp{data}
 }
@@ -204,7 +204,6 @@ func (f *function)Eval(env Env)string{
 	}
 	return fmt.Sprintf("%s(\"%s\")", f.name, strings.Join(args, ","))
 }
-
 
 type not struct{
 	exp Exp
@@ -290,6 +289,7 @@ type count struct {
 	fields []Exp
 	isAll bool
 }
+
 // TODO: postgresql 是不是允许count多个字段列啊……
 func Count(fields... Exp)Exp{
 	return &count{fields, false}
