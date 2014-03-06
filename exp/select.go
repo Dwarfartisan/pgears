@@ -142,7 +142,7 @@ func (sel Sel) Eval(env Env) string {
 	}
 	if sel.orderby != nil {
 		var orderby = make([]string, 0)
-		for _, o := range sel.groupby {
+		for _, o := range sel.orderby {
 			orderby = append(orderby, o.Eval(env))
 		}
 		command += (" ORDER BY " + strings.Join(orderby, ", "))
