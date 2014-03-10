@@ -47,7 +47,7 @@ func CreateEngine(url string) (*Engine, error){
 	if err != nil{
 		return nil, err
 	}
-	return &Engine{conn, make(map[string]*dbtable), 
+	return &Engine{conn, make(map[string]*dbtable),
 		make(map[reflect.Type]*dbtable),
 		make(map[string]*dbtable),
 	}, nil
@@ -130,7 +130,7 @@ func (e *Engine)FinaToCona(typename string, fieldname string) string{
 		if field, ok := (*dbt).Fields.GoGet(fieldname); ok {
 			return field.DbName
 		} else {
-			var message = fmt.Sprintf("field %s has't been found in table %s", 
+			var message = fmt.Sprintf("field %s has't been found in table %s",
 				fieldname, dbt.tablename)
 			panic(message)
 		}
@@ -164,6 +164,7 @@ func (e *Engine)Fetch(obj interface{}) error {
 			}
 		}
 		rset,err := stmt.Query(args...)
+		defer rset.Close()
 		if err != nil {
 			return err
 		}
@@ -174,7 +175,7 @@ func (e *Engine)Fetch(obj interface{}) error {
 		}
 		return nil
 	}else{
-		var message = fmt.Sprintf("%v.%v is't a regiested type", 
+		var message = fmt.Sprintf("%v.%v is't a regiested type",
 			typ.PkgPath(), typ.Name())
 		return errors.New(message)
 	}
@@ -213,7 +214,7 @@ func (e *Engine)Insert(obj interface{}) error {
 		// 因为是完全从应用层取数据，也就不存在对返回结果集的处理，但是这里其实应该校验操作行数
 		return nil
 	}else{
-		var message = fmt.Sprintf("%v.%v is't a regiested type", 
+		var message = fmt.Sprintf("%v.%v is't a regiested type",
 			fullGoName(typ))
 		return errors.New(message)
 	}
@@ -241,6 +242,7 @@ func (e *Engine)InsertMerge(obj interface{}) error {
 				args = append(args, arg)
 		}
 		rset,err := stmt.Query(args...)
+		defer rset.Close()
 		if err != nil {
 			return err
 		}
@@ -249,7 +251,7 @@ func (e *Engine)InsertMerge(obj interface{}) error {
 		}
 		return nil
 	}else{
-		var message = fmt.Sprintf("%v.%v is't a regiested type", 
+		var message = fmt.Sprintf("%v.%v is't a regiested type",
 			fullGoName(typ))
 		return errors.New(message)
 	}
@@ -291,7 +293,7 @@ func (e *Engine)Update(obj interface{}) error {
 		}
 		stmt.Exec(args...)
 	}else{
-		var message = fmt.Sprintf("%v.%v is't a regiested type", 
+		var message = fmt.Sprintf("%v.%v is't a regiested type",
 			fullGoName(typ))
 		return errors.New(message)
 	}
@@ -323,7 +325,7 @@ func (e *Engine)Delete(obj interface{}) error {
 		}
 		stmt.Query(args...)
 	}else{
-		var message = fmt.Sprintf("%v.%v is't a regiested type", 
+		var message = fmt.Sprintf("%v.%v is't a regiested type",
 			fullGoName(typ))
 		return errors.New(message)
 	}
@@ -356,7 +358,7 @@ func (q *Query)Q(args... interface{}) (*ResultSet, error){
 // 根据反射得到的 accessable 字段拆解出参数传入
 // 暂时只是根据顺序提取字段，将来有可能会增加根据字段名和参数名的对照进行传递的功能
 func (q *Query)QBy(arg interface{}) (*ResultSet, error){
-	var val = reflect.ValueOf(arg)	
+	var val = reflect.ValueOf(arg)
 	var typ = val.Type()
 	var args = make([]interface{}, 0, val.NumField())
 	for i:=0;i<val.NumField();i++{
@@ -409,4 +411,3 @@ func (r *ResultSet)Scalar(slot interface{}) error {
 		return errors.New("EOF")
 	}
 }
-
