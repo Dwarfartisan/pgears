@@ -1,9 +1,9 @@
 // exp 包中是用于 SQL 语句生成的各种组件
 //
 // exp.go 中保存了 exp 包的一些未分类组件
-// 
-// TODO 
-// 
+//
+// TODO
+//
 // 普通的表达式没有处理字符串转义，需要接受外部传入的数据的话，请一定参数化
 //
 // 目前还没有对纯文本文法中的命名做映射，要享受转换的能力，请使用 table 和 field 类型
@@ -126,7 +126,7 @@ type timestamp struct{
 	data time.Time
 }
 // Timestamp 函数用于生成 timestamp 类型的表达式。
-// timestamp 类型即 PostgreSQL 的 timestamp 时间戳。由于作者太懒，目前还没有 Date 
+// timestamp 类型即 PostgreSQL 的 timestamp 时间戳。由于作者太懒，目前还没有 Date
 // 和 Datetime 类型的支持。
 func Timestamp(data time.Time) Exp {
 	return &timestamp{data}
@@ -199,10 +199,10 @@ func Func(name string, args... Exp) Exp{
 }
 func (f *function)Eval(env Env)string{
 	var args = make([]string, len(f.args))
-	for _, arg := range f.args{
-		args = append(args, arg.Eval(env))
+	for idx, arg := range f.args{
+		args[idx] = arg.Eval(env)
 	}
-	return fmt.Sprintf("%s(\"%s\")", f.name, strings.Join(args, ","))
+	return fmt.Sprintf("%s(%s)", f.name, strings.Join(args, ","))
 }
 
 type not struct{
