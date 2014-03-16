@@ -251,7 +251,7 @@ func (e *Engine)InsertMerge(obj interface{}) error {
 		}
 		return nil
 	}else{
-		var message = fmt.Sprintf("%v.%v is't a regiested type",
+		var message = fmt.Sprintf("%s is't a regiested type",
 			fullGoName(typ))
 		return errors.New(message)
 	}

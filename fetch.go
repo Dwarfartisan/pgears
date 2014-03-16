@@ -147,6 +147,65 @@ func fetchStringPtr(f *interface{}, to *reflect.Value)error{
 	return nil
 }
 
+// BUG: 这里应该有 recover 保护，将截获的 panic error 返回
+func fetchJson(f *interface{}, to *reflect.Value)error{
+	if v, ok:=(*f).([]byte);ok{
+		var data interface{}
+		json.Unmarshal(v, &data)
+		to.Set(reflect.ValueOf(data))
+	}else{
+		var message = fmt.Sprintf("%v is't a usable json buffer", f)
+		return errors.New(message)
+	}
+	return nil
+}
+
+// BUG: 这里应该有 recover 保护，将截获的 panic error 返回
+func fetchJsonPtr(f *interface{}, to *reflect.Value)error{
+	if f == nil {
+		to.Set(makeNil(*to))
+	}
+
+	if v, ok:=(*f).([]byte);ok{
+		var data []interface{}
+		json.Unmarshal(v, &data)
+		to.Set(reflect.ValueOf(&data))
+	}else{
+		var message = fmt.Sprintf("%v is't a usable json buffer ptr", f)
+		return errors.New(message)
+	}
+	return nil
+}
+
+func fetchJsonSlice(f *interface{}, to *reflect.Value)error{
+	if v, ok:=(*f).([]byte);ok{
+		var data interface{}
+		json.Unmarshal(v, &data)
+		to.Set(reflect.ValueOf(data))
+	}else{
+		var message = fmt.Sprintf("%v is't a usable json buffer", f)
+		return errors.New(message)
+	}
+	return nil
+}
+
+
+func fetchJsonSlicePtr(f *interface{}, to *reflect.Value)error{
+	if f == nil {
+		to.Set(makeNil(*to))
+	}
+
+	if v, ok:=(*f).([]byte);ok{
+		var data []interface{}
+		json.Unmarshal(v, &data)
+		to.Set(reflect.ValueOf(&data))
+	}else{
+		var message = fmt.Sprintf("%v is't a usable json buffer ptr", f)
+		return errors.New(message)
+	}
+	return nil
+}
+
 func fetchByteSlice(f *interface{}, to *reflect.Value)error{
 	if v, ok:=(*f).([]byte);ok{
 		to.Set(reflect.ValueOf(v))
@@ -164,7 +223,7 @@ func fetchByteSlicePtr(f *interface{}, to *reflect.Value)error{
 	if v, ok:=(*f).([]byte);ok{
 		to.Set(reflect.ValueOf(&v))
 	}else{
-		var message = fmt.Sprintf("%v is't a usable *[]", f)
+		var message = fmt.Sprintf("%v is't a usable *[]byte", f)
 		return errors.New(message)
 	}
 	return nil

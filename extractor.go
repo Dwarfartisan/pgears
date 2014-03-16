@@ -125,7 +125,7 @@ func ExtractObject(val reflect.Value) (ret interface{}) {
 	return ret
 }
 
-func ExtractJsonMap(val reflect.Value) (ret interface{}) {
+func ExtractJson(val reflect.Value) (ret interface{}) {
 	ret, _ = json.Marshal(val.Interface())
 	return ret
 }
@@ -161,7 +161,7 @@ func ExtractObjectPtr(val reflect.Value) (ret interface{}) {
 	return ret
 }
 
-func ExtractJsonMapPtr(val reflect.Value) (ret interface{}) {
+func ExtractJsonPtr(val reflect.Value) (ret interface{}) {
 	ret, _ = json.Marshal(reflect.Indirect(val).Interface())
 	return ret
 }
