@@ -31,7 +31,7 @@ func NewDbField(fieldStruct *reflect.StructField) *dbfield{
 		var ft = ftype.Elem()
 		ret.GoType = &ft
 	case reflect.Interface:
-		ret.NotNull = false
+		ret.NotNull = true
 		ret.GoType = &ftype
 	default:
 		ret.NotNull = true
@@ -99,7 +99,11 @@ func selectFetch(notnull bool, fieldType *reflect.Type, tag reflect.StructTag) f
 		}
 	case reflect.Interface:
 		if tag.Get("jsonto")=="any" {
-			return fetchJson
+			if notnull {
+				return fetchJson
+			}else{
+				return fetchJsonPtr
+			}
 		}
 	case reflect.Map:
 		if tag.Get("jsonto")=="map" {

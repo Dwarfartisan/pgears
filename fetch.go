@@ -167,7 +167,7 @@ func fetchJsonPtr(f *interface{}, to *reflect.Value)error{
 	}
 
 	if v, ok:=(*f).([]byte);ok{
-		var data []interface{}
+		var data interface{}
 		json.Unmarshal(v, &data)
 		to.Set(reflect.ValueOf(&data))
 	}else{
