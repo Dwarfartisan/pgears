@@ -1,154 +1,62 @@
 package pgears
 
 import (
-	"errors"
-	"fmt"
-	"reflect"
-	"github.com/Dwarfartisan/pgears/exp"
 	"database/sql"
+	"encoding/json"
+	"fmt"
+	"github.com/Dwarfartisan/pgears/exp"
+	"reflect"
 )
 
 type fetchFunc func(*interface{}, *reflect.Value) error
+
 // stype 指结构字段的类型，这个类型总是指的值类型，如果该字段为指针，就取其 Elem()
 // 判断原始类型是否是指针，看它是不是 NotNull 就可以了。
 type dbfield struct {
-	GoName string
-	GoType *reflect.Type
-	DbName string
-	DbType string
-	IsPK bool
-	DbGen bool
+	GoName  string
+	DbName  string
+	IsPK    bool
+	DbGen   bool
 	NotNull bool
-	Fetch fetchFunc
+	Extract func(reflect.Value) (interface{}, func() error)
 }
-func NewDbField(fieldStruct *reflect.StructField) *dbfield{
+
+func NewDbField(fieldStruct *reflect.StructField) *dbfield {
 	var ret = dbfield{}
-	var ftype = fieldStruct.Type
 	ret.GoName = fieldStruct.Name
-	switch ftype.Kind(){
-	case reflect.Ptr:
+	ftype := fieldStruct.Type
+	switch ftype.Kind() {
+	case reflect.Ptr, reflect.Interface:
 		ret.NotNull = false
-		var ft = ftype.Elem()
-		ret.GoType = &ft
-	case reflect.Interface:
-		ret.NotNull = true
-		ret.GoType = &ftype
 	default:
 		ret.NotNull = true
-		ret.GoType = &ftype
 	}
 	var tag = fieldStruct.Tag
 	ret.DbName = tag.Get("field")
-	if pk := tag.Get("pk"); pk=="true" {
+	if pk := tag.Get("pk"); pk == "true" {
 		ret.IsPK = true
 	}
-	if dbgen := tag.Get("dbgen"); dbgen=="true" {
+	if dbgen := tag.Get("dbgen"); dbgen == "true" {
 		ret.DbGen = true
 	}
-	ret.Fetch = selectFetch(ret.NotNull, ret.GoType, tag)
-	var typ = *ret.GoType
-	switch typ.Kind(){
-	case reflect.Int, reflect.Int64:
-		ret.DbType = "INTEGER"
-	case reflect.Float64:
-		ret.DbType = "DOUBLE"
-	case reflect.String:
-		ret.DbType = "TEXT"
-	default:
-		if tag.Get("jsonto")!=""{
-			ret.DbType= "JSON"
-		} else if fullGoName(typ)=="time.Time"{
-			ret.DbType="TIMESTAMP"
-		} 
+	if tag.Get("jsonto") == "" {
+		ret.Extract = func(field reflect.Value) (interface{}, func() error) {
+			return field.Addr().Interface(), nil
+		}
+	} else {
+		ret.Extract = func(field reflect.Value) (interface{}, func() error) {
+			var buffer []byte
+			return &buffer, func() error {
+				slot := field.Addr().Interface()
+				var err error
+				if buffer != nil {
+					err = json.Unmarshal(buffer, &slot)
+				}
+				return err
+			}
+		}
 	}
 	return &ret
-}
-// 根据字段类型选择对应的 fetch 函数
-func selectFetch(notnull bool, fieldType *reflect.Type, tag reflect.StructTag) fetchFunc{
-	var ft = *fieldType
-	switch ft.Kind(){
-	case reflect.Bool:
-		if notnull {
-			return fetchBool
-		} else {
-			return fetchBoolPtr
-		}
-	case reflect.Int:
-		if notnull {
-			return fetchInt
-		} else {
-				return fetchIntPtr
-		}
-	case reflect.Int64:
-		if notnull {
-			return fetchInt64
-		} else {
-			return fetchInt64Ptr
-		}
-	case reflect.Float64:
-		if notnull {
-			return fetchFloat64
-		} else {
-			return fetchFloat64Ptr
-		}
-	case reflect.String:
-		if notnull {
-			return fetchString
-		} else {
-			return fetchStringPtr
-		}
-	case reflect.Interface:
-		if tag.Get("jsonto")=="any" {
-			if notnull {
-				return fetchJson
-			}else{
-				return fetchJsonPtr
-			}
-		}
-	case reflect.Map:
-		if tag.Get("jsonto")=="map" {
-			if notnull {
-				return fetchJsonMap
-			}else{
-				return fetchJsonMapPtr
-			}
-		}
-	case reflect.Slice:
-		if tag.Get("jsonto")=="bytes" {
-			if notnull {
-				return fetchByteSlice
-			}else{
-				return fetchByteSlicePtr
-			}
-		} 
-		if tag.Get("jsonto")=="slice" {
-			if notnull {
-				return fetchJsonSlice
-			}else{
-				return fetchJsonSlicePtr
-			}
-		} 
-	case reflect.Struct:
-		if tag.Get("jsonto")=="struct" {
-			if notnull {
-				return fetchJsonStruct
-			}else{
-				return fetchJsonStructPtr
-			}
-		} 
-		if (fullGoName(ft)=="time.Time") {
-			if notnull {
-				return fetchTime
-			} else {
-				return fetchTimePtr
-			}
-		}
-	default:
-		var message = fmt.Sprintf("I don't know how to fetch it: %v", ft.Kind())
-		var err = errors.New(message)
-		panic(err)
-	}
-	return nil
 }
 
 // 用于管理字段组的双键map，这样就可以根据结构或表字段名找到对应的字段
@@ -156,38 +64,39 @@ type fieldmap struct {
 	gomap map[string]*dbfield
 	dbmap map[string]*dbfield
 }
+
 func NewFieldMap() *fieldmap {
 	return &fieldmap{make(map[string]*dbfield), make(map[string]*dbfield)}
 }
-func (fm *fieldmap)Length() int {
+func (fm *fieldmap) Length() int {
 	return len(fm.gomap)
 }
-func (fm *fieldmap)Set(field *dbfield){
+func (fm *fieldmap) Set(field *dbfield) {
 	fm.gomap[field.GoName] = field
 	fm.dbmap[field.DbName] = field
 }
-func (fm *fieldmap)GoGet(goname string) (*dbfield, bool) {
+func (fm *fieldmap) GoGet(goname string) (*dbfield, bool) {
 	if field, ok := fm.gomap[goname]; ok {
 		return field, ok
 	} else {
 		return nil, ok
 	}
 }
-func (fm *fieldmap)DbGet(goname string) (*dbfield, bool) {
+func (fm *fieldmap) DbGet(goname string) (*dbfield, bool) {
 	if field, ok := fm.dbmap[goname]; ok {
 		return field, ok
 	} else {
 		return nil, ok
 	}
 }
-func (fm *fieldmap)GoKeys() []string {
+func (fm *fieldmap) GoKeys() []string {
 	var ret = make([]string, 0, len(fm.gomap))
 	for key := range fm.gomap {
 		ret = append(ret, key)
 	}
 	return ret
 }
-func (fm *fieldmap)DbKeys() []string {
+func (fm *fieldmap) DbKeys() []string {
 	var ret = make([]string, 0, len(fm.dbmap))
 	for key := range fm.dbmap {
 		ret = append(ret, key)
@@ -198,24 +107,25 @@ func (fm *fieldmap)DbKeys() []string {
 type structFetchFunc func(row *sql.Rows, obj interface{})
 type dbtable struct {
 	tablename string
-	gotype *reflect.Type
-	Fields *fieldmap
-	Pk *fieldmap
-	NPk *fieldmap
-	DbGen *fieldmap
-	NDbGen *fieldmap
+	gotype    *reflect.Type
+	Fields    *fieldmap
+	Pk        *fieldmap
+	NPk       *fieldmap
+	DbGen     *fieldmap
+	NDbGen    *fieldmap
 	// all 从数据库中加载所有字段的数据，pk 仅加载主键列表， npk 仅加载非pk字段，用于 Select From Where 类的对象加载
 	// dbgens 仅加载dbgen字段，用于 insert into returning 类的对象存储
-	pk structFetchFunc
-	npk structFetchFunc
+	pk        structFetchFunc
+	npk       structFetchFunc
 	returning structFetchFunc
-	all structFetchFunc
+	all       structFetchFunc
 }
+
 func NewDbTable(typ *reflect.Type, tablename string) *dbtable {
 	var table = dbtable{tablename, typ, NewFieldMap(),
-		NewFieldMap(), NewFieldMap(), NewFieldMap(), NewFieldMap(), 
+		NewFieldMap(), NewFieldMap(), NewFieldMap(), NewFieldMap(),
 		nil, nil, nil, nil}
-	for i:=0;i<(*typ).NumField();i++{
+	for i := 0; i < (*typ).NumField(); i++ {
 		var field = (*typ).Field(i)
 		var df = NewDbField(&field)
 		table.Fields.Set(df)
@@ -238,13 +148,13 @@ func NewDbTable(typ *reflect.Type, tablename string) *dbtable {
 // 而非确定的表达式，以下若干Extract和XxxGears方法用于这种场合
 // dbtable 是已经解析过的结构体和数据表的定义对照表，所以从中可以生成表、主键和（非主键）数据字段
 // 的列表以及用于 where 的 筛选条件（即所有主键的 and 表达式）
-func (dbt *dbtable)Extract()(t *exp.Table, pk []exp.Exp, other []exp.Exp, cond exp.Exp) {
+func (dbt *dbtable) Extract() (t *exp.Table, pk []exp.Exp, other []exp.Exp, cond exp.Exp) {
 	t = exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
 	pk = make([]exp.Exp, 0, dbt.Pk.Length())
 	other = make([]exp.Exp, 0, dbt.NPk.Length())
 	for _, key := range dbt.Fields.GoKeys() {
 		// 这里要取不是pk的
-		dbf, _:=dbt.Fields.GoGet(key)
+		dbf, _ := dbt.Fields.GoGet(key)
 		var f = exp.Field{t, dbf.GoName, dbf.DbName}
 		if dbf.IsPK {
 			pk = append(pk, &f)
@@ -253,7 +163,7 @@ func (dbt *dbtable)Extract()(t *exp.Table, pk []exp.Exp, other []exp.Exp, cond e
 		}
 	}
 	var gokeys = dbt.Pk.GoKeys()
-	var f,_ = dbt.Pk.GoGet(gokeys[0])
+	var f, _ = dbt.Pk.GoGet(gokeys[0])
 	cond = exp.Equal(t.Field(f.GoName), exp.Arg(1))
 	if len(gokeys) > 1 {
 		for idx, key := range gokeys[1:] {
@@ -265,11 +175,11 @@ func (dbt *dbtable)Extract()(t *exp.Table, pk []exp.Exp, other []exp.Exp, cond e
 	return t, pk, other, cond
 }
 
-// 生成用于 Insert 的表达式组件，其中不包括在数据库端自动生成的字段，这些字段包含在 
+// 生成用于 Insert 的表达式组件，其中不包括在数据库端自动生成的字段，这些字段包含在
 // returning 中
-func (dbt *dbtable)MergeInsertGears()(t *exp.Table, 
-	fields []exp.Exp, values []exp.Exp, returning []exp.Exp, 
-	names []string){
+func (dbt *dbtable) MergeInsertGears() (t *exp.Table,
+	fields []exp.Exp, values []exp.Exp, returning []exp.Exp,
+	names []string) {
 	t = exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
 	fields = make([]exp.Exp, 0, dbt.Fields.Length())
 	values = make([]exp.Exp, 0, dbt.Fields.Length())
@@ -278,13 +188,13 @@ func (dbt *dbtable)MergeInsertGears()(t *exp.Table,
 	idx := 0
 	for _, key := range dbt.Fields.GoKeys() {
 		// 这里要取不是dbgen的
-		dbf, _:=dbt.Fields.GoGet(key)
+		dbf, _ := dbt.Fields.GoGet(key)
 		var f = exp.Field{t, dbf.GoName, dbf.DbName}
 		if dbf.DbGen {
 			returning = append(returning, &f)
 		} else {
 			fields = append(fields, &f)
-			idx ++
+			idx++
 			values = append(values, exp.Arg(idx))
 			names = append(names, dbf.GoName)
 		}
@@ -293,26 +203,26 @@ func (dbt *dbtable)MergeInsertGears()(t *exp.Table,
 }
 
 // 生成用于 Insert 的表达式组件，包含所有的字段，包括dbgen
-func (dbt *dbtable)AllInsertGears()(t *exp.Table, 
+func (dbt *dbtable) AllInsertGears() (t *exp.Table,
 	fields []exp.Exp, values []exp.Exp, names []string) {
 	t = exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
 	fields = make([]exp.Exp, 0, dbt.Fields.Length())
 	names = make([]string, 0, dbt.Fields.Length())
 	values = make([]exp.Exp, 0, len(fields))
 	for idx, key := range dbt.Fields.GoKeys() {
-		dbf, _:=dbt.Fields.GoGet(key)
+		dbf, _ := dbt.Fields.GoGet(key)
 		var f = exp.Field{t, dbf.GoName, dbf.DbName}
 		fields = append(fields, &f)
-		arg := exp.Arg(idx+1)
+		arg := exp.Arg(idx + 1)
 		values = append(values, arg)
-		names  = append(names, dbf.GoName)
+		names = append(names, dbf.GoName)
 	}
 
 	return t, fields, values, names
 }
 
 // 生成用于 Update 的表达式组件，这里需要调用者传入 sets 的字段列表
-func (dbt *dbtable)UpdateGears(s []string)(t *exp.Table, 
+func (dbt *dbtable) UpdateGears(s []string) (t *exp.Table,
 	sets []exp.Exp, cond exp.Exp, names []string) {
 	t = exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
 	pk := dbt.Pk.GoKeys()
@@ -326,7 +236,7 @@ func (dbt *dbtable)UpdateGears(s []string)(t *exp.Table,
 		names = append(names, key)
 	}
 
-	var f,_ = dbt.Pk.GoGet(pk[0])
+	var f, _ = dbt.Pk.GoGet(pk[0])
 	cond = exp.Equal(t.Field(f.GoName), exp.Arg(start+1))
 	if len(pk) > 1 {
 		for idx, key := range pk[1:] {
@@ -339,18 +249,16 @@ func (dbt *dbtable)UpdateGears(s []string)(t *exp.Table,
 	return t, sets, cond, names
 }
 
-
-
 // 以下若干XxxExpr方法用于生成便于调用的既定表达式
 // 表达式内含的参数列，其对应的字段列表在返回值中给出
 // 生成一个用于 Select 包含所有主键的给定对象的 SQL 表达式
-func (dbt *dbtable)FetchExpr()(expr exp.Exp, names []string){
+func (dbt *dbtable) FetchExpr() (expr exp.Exp, names []string) {
 	t := exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
 	pk := make([]exp.Exp, 0, dbt.Pk.Length())
 	other := make([]exp.Exp, 0, dbt.Fields.Length())
 	for _, key := range dbt.Fields.GoKeys() {
 		// 这里要取不是pk的
-		dbf, _:=dbt.Fields.GoGet(key)
+		dbf, _ := dbt.Fields.GoGet(key)
 		var f = exp.Field{t, dbf.GoName, dbf.DbName}
 		if dbf.IsPK {
 			pk = append(pk, &f)
@@ -359,7 +267,7 @@ func (dbt *dbtable)FetchExpr()(expr exp.Exp, names []string){
 		}
 	}
 	var gokeys = dbt.Pk.GoKeys()
-	var f,_ = dbt.Pk.GoGet(gokeys[0])
+	var f, _ = dbt.Pk.GoGet(gokeys[0])
 	cond := exp.Equal(t.Field(f.GoName), exp.Arg(1))
 	if len(gokeys) > 1 {
 		for idx, key := range gokeys[1:] {
@@ -368,12 +276,12 @@ func (dbt *dbtable)FetchExpr()(expr exp.Exp, names []string){
 				cond)
 		}
 	}
-	return exp.Select(other...).Where(cond), gokeys 
+	return exp.Select(other...).Where(cond), gokeys
 }
 
-// 生成一个用于 Insert 的表达式，其中不包括在数据库端自动生成的字段，这些字段包含在 
+// 生成一个用于 Insert 的表达式，其中不包括在数据库端自动生成的字段，这些字段包含在
 // returning 中
-func (dbt *dbtable)MergeInsertExpr()(exp.Exp, []string){
+func (dbt *dbtable) MergeInsertExpr() (exp.Exp, []string) {
 	t := exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
 	dbgen := make([]exp.Exp, 0, dbt.DbGen.Length())
 	other := make([]exp.Exp, 0, dbt.Fields.Length())
@@ -382,14 +290,14 @@ func (dbt *dbtable)MergeInsertExpr()(exp.Exp, []string){
 	idx := 1
 	for _, key := range dbt.Fields.GoKeys() {
 		// 这里要取不是dbgen的
-		dbf, _:=dbt.Fields.GoGet(key)
+		dbf, _ := dbt.Fields.GoGet(key)
 		var f = exp.Field{t, dbf.GoName, dbf.DbName}
 		if dbf.DbGen {
 			dbgen = append(dbgen, &f)
 		} else {
 			other = append(other, &f)
 			arg := exp.Arg(idx)
-			idx ++
+			idx++
 			args = append(args, arg)
 			names = append(names, dbf.GoName)
 		}
@@ -398,44 +306,44 @@ func (dbt *dbtable)MergeInsertExpr()(exp.Exp, []string){
 }
 
 // 生成一个用于 Insert 的表达式，包含所有的字段，包括dbgen
-func (dbt *dbtable)AllInsertExpr()(exp.Exp, []string){
+func (dbt *dbtable) AllInsertExpr() (exp.Exp, []string) {
 	t := exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
 	fields := make([]exp.Exp, 0, dbt.Fields.Length())
 	args := make([]exp.Exp, 0, dbt.Fields.Length())
 	names := dbt.Fields.GoKeys()
 	for idx, key := range names {
-		dbf, _:=dbt.Fields.GoGet(key)
+		dbf, _ := dbt.Fields.GoGet(key)
 		var f = exp.Field{t, dbf.GoName, dbf.DbName}
 		fields = append(fields, &f)
-		arg := exp.Arg(idx+1)
+		arg := exp.Arg(idx + 1)
 		args = append(args, arg)
 	}
 	return exp.Insert(t, fields...).Values(args...), names
 }
 
 // 生成一个用于 Update 的表达式，这里需要调用者给出准备Update的字段名，
-// 函数生成形如 Update XXX Set ... Where cond 的 SQL 表达式， 
+// 函数生成形如 Update XXX Set ... Where cond 的 SQL 表达式，
 // update 语句中包含主键字段列表，所以虽然它的sets由用户指定，仍然返回参数命名表
-func (dbt *dbtable)UpdateExpr(sets []string)(expr exp.Exp, names []string){
+func (dbt *dbtable) UpdateExpr(sets []string) (expr exp.Exp, names []string) {
 	t := exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
 	copy(names, sets)
 	pk := make([]exp.Exp, 0, dbt.Pk.Length())
 	setExprs := make([]exp.Exp, 0, len(sets))
 	for idx, key := range sets {
-		arg := exp.Arg(idx+1)
+		arg := exp.Arg(idx + 1)
 		setExprs = append(setExprs, exp.Equal(t.Field(key), arg))
 	}
 
 	start := len(sets)
 	var gokeys = dbt.Pk.GoKeys()
 	for _, key := range gokeys {
-		dbf, _:=dbt.Fields.GoGet(key)
+		dbf, _ := dbt.Fields.GoGet(key)
 		var f = exp.Field{t, dbf.GoName, dbf.DbName}
 		pk = append(pk, &f)
 		names = append(names, key)
 	}
 
-	var f,_ = dbt.Pk.GoGet(gokeys[0])
+	var f, _ = dbt.Pk.GoGet(gokeys[0])
 	cond := exp.Equal(t.Field(f.GoName), exp.Arg(start))
 	if len(gokeys) > 1 {
 		for idx, key := range gokeys[1:] {
@@ -452,7 +360,7 @@ func (dbt *dbtable)UpdateExpr(sets []string)(expr exp.Exp, names []string){
 // 因为golang还没有泛型，所以如果滥用这些方法，传错类型导致panic，请自挂东南枝(￣^￣)ゞ
 // 这个方法本身不执行加载，而是生成加载函数的变量，这样有两个好处，一个是可以套强类型的壳
 // 一个是可以把一些确定的逻辑尽可能的优化
-func (dbt *dbtable)makeLoads(){
+func (dbt *dbtable) makeLoads() {
 	var fields = make(map[string]*dbfield)
 	var pks = make(map[string]*dbfield)
 	var npk = make(map[string]*dbfield)
@@ -470,9 +378,9 @@ func (dbt *dbtable)makeLoads(){
 		}
 		if field.DbGen {
 			dbgen[key] = field
-		} 
+		}
 
-		fields[key]=field
+		fields[key] = field
 	}
 	dbt.pk = makeFetchHelper(pks)
 	dbt.npk = makeFetchHelper(npk)
@@ -480,23 +388,32 @@ func (dbt *dbtable)makeLoads(){
 	dbt.all = makeFetchHelper(fields)
 }
 func makeFetchHelper(fieldmap map[string]*dbfield) structFetchFunc {
-	var l = len(fieldmap)
-	var slots = make([]interface{}, 0, l)
-	for i:=0; i<l; i++ {
-		var slot interface{}
-		slots = append(slots, &slot)
-	}
-	var refunc = func(rows *sql.Rows, obj interface{}){
+
+	var refunc = func(rows *sql.Rows, obj interface{}) {
+		var cols, err = rows.Columns()
+		if err != nil {
+			panic(err)
+		}
+		l := len(cols)
 		var val = reflect.Indirect(reflect.ValueOf(obj))
-		rows.Scan(slots...)
-		var cols, _ = rows.Columns()
-		for idx, key := range cols {
-			if fdef, ok := fieldmap[key]; ok {
-				var fname = fdef.GoName
-				if ptr, ok := slots[idx].(*interface{}); ok {
-					var field = val.FieldByName(fname)
-					fdef.Fetch(ptr, &field)
+		var slots = make([]interface{}, l)
+		var callbacks = make([]func() error, 0, l)
+		for idx, col := range cols {
+			if dbf, ok := fieldmap[col]; ok {
+				var fname = dbf.GoName
+				field := val.FieldByName(fname)
+				slot, callback := dbf.Extract(field)
+				slots[idx] = slot
+				if callback != nil {
+					callbacks = append(callbacks, callback)
 				}
+			}
+		}
+		rows.Scan(slots...)
+		for _, cb := range callbacks {
+			err := cb()
+			if err != nil {
+				panic(err)
 			}
 		}
 	}
