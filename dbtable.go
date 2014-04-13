@@ -8,8 +8,6 @@ import (
 	"reflect"
 )
 
-type fetchFunc func(*interface{}, *reflect.Value) error
-
 // stype 指结构字段的类型，这个类型总是指的值类型，如果该字段为指针，就取其 Elem()
 // 判断原始类型是否是指针，看它是不是 NotNull 就可以了。
 type dbfield struct {
@@ -155,7 +153,7 @@ func (dbt *dbtable) Extract() (t *exp.Table, pk []exp.Exp, other []exp.Exp, cond
 	for _, key := range dbt.Fields.GoKeys() {
 		// 这里要取不是pk的
 		dbf, _ := dbt.Fields.GoGet(key)
-		var f = exp.Field{t, dbf.GoName, dbf.DbName}
+		var f = exp.Field{Table: t, GoName: dbf.GoName, DbName: dbf.DbName}
 		if dbf.IsPK {
 			pk = append(pk, &f)
 		} else {
@@ -189,7 +187,7 @@ func (dbt *dbtable) MergeInsertGears() (t *exp.Table,
 	for _, key := range dbt.Fields.GoKeys() {
 		// 这里要取不是dbgen的
 		dbf, _ := dbt.Fields.GoGet(key)
-		var f = exp.Field{t, dbf.GoName, dbf.DbName}
+		var f = exp.Field{Table: t, GoName: dbf.GoName, DbName: dbf.DbName}
 		if dbf.DbGen {
 			returning = append(returning, &f)
 		} else {
@@ -211,7 +209,7 @@ func (dbt *dbtable) AllInsertGears() (t *exp.Table,
 	values = make([]exp.Exp, 0, len(fields))
 	for idx, key := range dbt.Fields.GoKeys() {
 		dbf, _ := dbt.Fields.GoGet(key)
-		var f = exp.Field{t, dbf.GoName, dbf.DbName}
+		var f = exp.Field{Table: t, GoName: dbf.GoName, DbName: dbf.DbName}
 		fields = append(fields, &f)
 		arg := exp.Arg(idx + 1)
 		values = append(values, arg)
@@ -259,7 +257,7 @@ func (dbt *dbtable) FetchExpr() (expr exp.Exp, names []string) {
 	for _, key := range dbt.Fields.GoKeys() {
 		// 这里要取不是pk的
 		dbf, _ := dbt.Fields.GoGet(key)
-		var f = exp.Field{t, dbf.GoName, dbf.DbName}
+		var f = exp.Field{Table: t, GoName: dbf.GoName, DbName: dbf.DbName}
 		if dbf.IsPK {
 			pk = append(pk, &f)
 		} else {
@@ -291,7 +289,7 @@ func (dbt *dbtable) MergeInsertExpr() (exp.Exp, []string) {
 	for _, key := range dbt.Fields.GoKeys() {
 		// 这里要取不是dbgen的
 		dbf, _ := dbt.Fields.GoGet(key)
-		var f = exp.Field{t, dbf.GoName, dbf.DbName}
+		var f = exp.Field{Table: t, GoName: dbf.GoName, DbName: dbf.DbName}
 		if dbf.DbGen {
 			dbgen = append(dbgen, &f)
 		} else {
@@ -313,7 +311,7 @@ func (dbt *dbtable) AllInsertExpr() (exp.Exp, []string) {
 	names := dbt.Fields.GoKeys()
 	for idx, key := range names {
 		dbf, _ := dbt.Fields.GoGet(key)
-		var f = exp.Field{t, dbf.GoName, dbf.DbName}
+		var f = exp.Field{Table: t, GoName: dbf.GoName, DbName: dbf.DbName}
 		fields = append(fields, &f)
 		arg := exp.Arg(idx + 1)
 		args = append(args, arg)
@@ -338,7 +336,7 @@ func (dbt *dbtable) UpdateExpr(sets []string) (expr exp.Exp, names []string) {
 	var gokeys = dbt.Pk.GoKeys()
 	for _, key := range gokeys {
 		dbf, _ := dbt.Fields.GoGet(key)
-		var f = exp.Field{t, dbf.GoName, dbf.DbName}
+		var f = exp.Field{Table: t, GoName: dbf.GoName, DbName: dbf.DbName}
 		pk = append(pk, &f)
 		names = append(names, key)
 	}

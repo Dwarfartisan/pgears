@@ -11,15 +11,15 @@ package exp
 
 import (
 	"fmt"
-	"time"
-	"strings"
 	"regexp"
+	"strings"
+	"time"
 
 	"github.com/lib/pq"
 )
 
-var argFinder,_ = regexp.Compile("([^\\$]\\$\\d)|(^\\$d)")
-var dollar,_ = regexp.Compile("\\$\\$")
+var argFinder, _ = regexp.Compile("([^\\$]\\$\\d)|(^\\$d)")
+var dollar, _ = regexp.Compile("\\$\\$")
 
 type Env interface {
 	// Type Name to Table Name
@@ -35,110 +35,121 @@ type Exp interface {
 	Eval(Env) string
 }
 
-type equal struct{
+type equal struct {
 	x, y Exp
 }
-func Equal(x, y Exp) Exp{
+
+func Equal(x, y Exp) Exp {
 	return &equal{x, y}
 }
-func (e equal)Eval(env Env)string{
+func (e equal) Eval(env Env) string {
 	return fmt.Sprintf("%s=%s", e.x.Eval(env), e.y.Eval(env))
 }
 
-type notequal struct{
+type notequal struct {
 	x, y Exp
 }
-func NotEqual(x, y Exp) Exp{
+
+func NotEqual(x, y Exp) Exp {
 	return &notequal{x, y}
 }
-func (e notequal)Eval(env Env)string{
+func (e notequal) Eval(env Env) string {
 	return fmt.Sprintf("%s!=%s", e.x.Eval(env), e.y.Eval(env))
 }
 
-type great struct{
+type great struct {
 	x, y Exp
 }
-func Great(x, y Exp) Exp{
+
+func Great(x, y Exp) Exp {
 	return &great{x, y}
 }
-func (e great)Eval(env Env)string{
+func (e great) Eval(env Env) string {
 	return fmt.Sprintf("%s>%s", e.x.Eval(env), e.y.Eval(env))
 }
 
-type less struct{
+type less struct {
 	x, y Exp
 }
-func Less(x, y Exp) Exp{
+
+func Less(x, y Exp) Exp {
 	return &great{x, y}
 }
-func (e less)Eval(env Env)string{
+func (e less) Eval(env Env) string {
 	return fmt.Sprintf("%s<%s", e.x.Eval(env), e.y.Eval(env))
 }
 
-type and struct{
+type and struct {
 	x, y Exp
 }
-func And(x, y Exp) Exp{
+
+func And(x, y Exp) Exp {
 	return &and{x, y}
 }
-func (a and)Eval(env Env)string{
+func (a and) Eval(env Env) string {
 	return fmt.Sprintf("(%s) and (%s)", a.x.Eval(env), a.y.Eval(env))
 }
 
-type or struct{
+type or struct {
 	x, y Exp
 }
-func Or(x, y Exp) Exp{
+
+func Or(x, y Exp) Exp {
 	return &or{x, y}
 }
-func (o or)Eval(env Env)string{
+func (o or) Eval(env Env) string {
 	return fmt.Sprintf("(%s) or (%s)", o.x.Eval(env), o.y.Eval(env))
 }
 
-type text struct{
+type text struct {
 	data string
 }
+
 // Text 函数用于生成text类型的表达式。
 // text 就是 PostgreSQL 的 text 类型。由于作者太懒，先用这个代替所有的文本和字符串类型用吧，
 // 在 PG 里其实一般的规模好像也问题不大……
-func Text(data string) Exp{
+func Text(data string) Exp {
 	return &text{data}
 }
 
 // 从 text 对象到 SQL 片段的解析函数实现
-func(t *text)Eval(env Env)string{
+func (t *text) Eval(env Env) string {
 	return fmt.Sprintf("'%s'", t.data)
 }
 
-type integer struct{
+type integer struct {
 	data int
 }
+
 // Integer 函数生成 integer 类型表达式，这个 integer 指 PostgreSQL 中的 integer 类型
-func Integer(data int) Exp{
+func Integer(data int) Exp {
 	return &integer{data}
 }
+
 // 从 integer 对象到 SQL 片段的解析函数实现
-func(i *integer)Eval(env Env)string{
+func (i *integer) Eval(env Env) string {
 	return fmt.Sprintf("%d", i.data)
 }
 
-type timestamp struct{
+type timestamp struct {
 	data time.Time
 }
+
 // Timestamp 函数用于生成 timestamp 类型的表达式。
 // timestamp 类型即 PostgreSQL 的 timestamp 时间戳。由于作者太懒，目前还没有 Date
 // 和 Datetime 类型的支持。
 func Timestamp(data time.Time) Exp {
 	return &timestamp{data}
 }
+
 // 从 时间戳对象到 SQL 片段的解析函数实现
-func(ts *timestamp)Eval(env Env) string{
-	dbtime := pq.NullTime{ts.data, true}
+func (ts *timestamp) Eval(env Env) string {
+	dbtime := pq.NullTime{Time: ts.data, Valid: true}
 	val, err := dbtime.Value()
 	if err != nil {
 		panic(err)
 	} else {
-		if ret,ok := val.([]byte);ok{
+		if ret, ok := val.([]byte); ok {
 			return string(ret)
 		} else {
 			panic(ts.data)
@@ -147,23 +158,24 @@ func(ts *timestamp)Eval(env Env) string{
 }
 
 // 之所以用 arg 而不是 parameter ， 完全是为了少写几个字母……
-type arg struct{
+type arg struct {
 	Order int
 }
+
 // 我也觉得自动生成序列号比较省力气啊。不过想了半天， $%d 就是为了可以指定参数插入位置啊，
 // 自动生成顺序就白瞎了啊……
 // 将来可能会把这个变成支持命名的，order虽然更省事儿，但是命名相对来说更省心
 func Arg(order int) *arg {
 	return &arg{order}
 }
-func (a arg)Eval(env Env)string{
+func (a arg) Eval(env Env) string {
 	return fmt.Sprintf("$%d", a.Order)
 }
 
 // IncOrder 其实在 pgears 之外应该不太有机会用到，这个是内部生成表达式的时候偶尔
 // 需要调整表达式中参数的 order，这个就是起这种作用的，其实如果全命名化了也就没这个问题了。
 // 之所以公开是因为 Engine 会用到。
-func IncOrder(e Exp, step int){
+func IncOrder(e Exp, step int) {
 	switch ex := e.(type) {
 	case *equal:
 		IncOrder((*ex).x, step)
@@ -190,73 +202,79 @@ func IncOrder(e Exp, step int){
 	}
 }
 
-type function struct{
+type function struct {
 	name string
 	args []Exp
 }
-func Func(name string, args... Exp) Exp{
+
+func Func(name string, args ...Exp) Exp {
 	return &function{name, args}
 }
-func (f *function)Eval(env Env)string{
+func (f *function) Eval(env Env) string {
 	var args = make([]string, len(f.args))
-	for idx, arg := range f.args{
+	for idx, arg := range f.args {
 		args[idx] = arg.Eval(env)
 	}
 	return fmt.Sprintf("%s(%s)", f.name, strings.Join(args, ","))
 }
 
-type not struct{
+type not struct {
 	exp Exp
 }
-func Not(exp Exp) *not{
+
+func Not(exp Exp) *not {
 	return &not{exp}
 }
-func (n not)Eval(env Env) string{
+func (n not) Eval(env Env) string {
 	return fmt.Sprintf("not (%s)", n.exp.Eval(env))
 }
 
-type fieldIsNull struct{
+type fieldIsNull struct {
 	exp Exp
 }
-func FieldIsNull(field Exp) fieldIsNull{
+
+func FieldIsNull(field Exp) fieldIsNull {
 	return fieldIsNull{field}
 }
-func (isnull *fieldIsNull)Eval(env Env) string{
+func (isnull *fieldIsNull) Eval(env Env) string {
 	return fmt.Sprintf("%s is NULL", isnull.exp.Eval(env))
 }
 
-type isNullFunc struct{
+type isNullFunc struct {
 	field Exp
-	exp Exp
+	exp   Exp
 }
-func IsNullFunc(field Exp, exp Exp) Exp{
+
+func IsNullFunc(field Exp, exp Exp) Exp {
 	return isNullFunc{field, exp}
 }
-func (isnull isNullFunc)Eval(env Env) string{
+func (isnull isNullFunc) Eval(env Env) string {
 	return fmt.Sprintf("isNull(%s, %s)", isnull.field.Eval(env),
 		isnull.exp.Eval(env))
 }
 
-type nullif struct{
+type nullif struct {
 	field Exp
-	exp Exp
+	exp   Exp
 }
-func NullIf(field Exp, exp Exp) Exp{
+
+func NullIf(field Exp, exp Exp) Exp {
 	return nullif{field, exp}
 }
-func (nullif nullif)Eval(env Env) string{
+func (nullif nullif) Eval(env Env) string {
 	return fmt.Sprintf("nullif(%s, %s)", nullif.field.Eval(env),
 		nullif.exp.Eval(env))
 }
 
-type fullTextSearch struct{
+type fullTextSearch struct {
 	field Exp
 	query Exp
 }
-func FTS(field Exp, query Exp) *fullTextSearch{
+
+func FTS(field Exp, query Exp) *fullTextSearch {
 	return &fullTextSearch{field, query}
 }
-func (fts fullTextSearch)Eval(env Env)string{
+func (fts fullTextSearch) Eval(env Env) string {
 	return fmt.Sprintf("%s @@ %s", fts.field.Eval(env),
 		fts.query.Eval(env))
 }
@@ -265,10 +283,11 @@ func (fts fullTextSearch)Eval(env Env)string{
 type snippet struct {
 	str *string
 }
-func Snippet(s string) *snippet{
+
+func Snippet(s string) *snippet {
 	return &snippet{&s}
 }
-func (s *snippet)Eval(env Env) string {
+func (s *snippet) Eval(env Env) string {
 	return *s.str
 }
 
@@ -276,32 +295,34 @@ func (s *snippet)Eval(env Env) string {
 type desc struct {
 	field Exp
 }
+
 // Desc 生成一个用于orderby desc的表达式
-func Desc(field Exp)Exp{
+func Desc(field Exp) Exp {
 	return &desc{field}
 }
 
-func (d desc)Eval(env Env) string{
-	return d.field.Eval(env)+" desc"
+func (d desc) Eval(env Env) string {
+	return d.field.Eval(env) + " desc"
 }
 
 type count struct {
 	fields []Exp
-	isAll bool
+	isAll  bool
 }
 
 // TODO: postgresql 是不是允许count多个字段列啊……
-func Count(fields... Exp)Exp{
+func Count(fields ...Exp) Exp {
 	return &count{fields, false}
 }
+
 // count(*)
-func Counts()Exp{
+func Counts() Exp {
 	return &count{[]Exp{}, true}
 }
-func (d count)Eval(env Env) string{
+func (d count) Eval(env Env) string {
 	if d.isAll {
 		return "count(*)"
-	}else{
+	} else {
 		fs := make([]string, 0, len(d.fields))
 		for _, f := range d.fields {
 			fs = append(fs, f.Eval(env))
@@ -309,4 +330,15 @@ func (d count)Eval(env Env) string{
 		fields := strings.Join(fs, ",")
 		return fmt.Sprintf("count(%s)", fields)
 	}
+}
+
+type allfield struct {
+}
+
+func X() Exp {
+	return allfield{}
+}
+
+func (x allfield) Eval(env Env) string {
+	return "*"
 }
