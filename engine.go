@@ -202,7 +202,6 @@ func (e *Engine) Insert(obj interface{}) error {
 		var sql = ins.Eval(parser)
 		var stmt, err = e.Prepare(sql)
 		if err != nil {
-			panic(err)
 			return err
 		}
 		var l = len(pk)
@@ -223,7 +222,7 @@ func (e *Engine) Insert(obj interface{}) error {
 		// 因为是完全从应用层取数据，也就不存在对返回结果集的处理，但是这里其实应该校验操作行数
 		return nil
 	} else {
-		var message = fmt.Sprintf("%v.%v is't a regiested type",
+		var message = fmt.Sprintf("%v is't a regiested type",
 			fullGoName(typ))
 		return errors.New(message)
 	}
@@ -239,7 +238,6 @@ func (e *Engine) InsertMerge(obj interface{}) error {
 		var sql = ins.Eval(parser)
 		var stmt, err = e.Prepare(sql)
 		if err != nil {
-			panic(err)
 			return err
 		}
 		var l = len(names)
@@ -304,7 +302,7 @@ func (e *Engine) Update(obj interface{}) error {
 		}
 		stmt.Exec(args...)
 	} else {
-		var message = fmt.Sprintf("%v.%v is't a regiested type",
+		var message = fmt.Sprintf("%v is't a regiested type",
 			fullGoName(typ))
 		return errors.New(message)
 	}
@@ -337,7 +335,7 @@ func (e *Engine) Delete(obj interface{}) error {
 		}
 		stmt.Query(args...)
 	} else {
-		var message = fmt.Sprintf("%v.%v is't a regiested type",
+		var message = fmt.Sprintf("%v is't a regiested type",
 			fullGoName(typ))
 		return errors.New(message)
 	}
