@@ -78,6 +78,7 @@ func (e *Engine) PrepareFor(typeName string, exp exp.Exp) (*Query, error) {
 func (e *Engine) PrepareSQL(exp exp.Exp) (*sql.Stmt, error) {
 	var parser = NewParser(e)
 	var sql = exp.Eval(parser)
+	// fmt.Println(sql)
 	return e.DB.Prepare(sql)
 }
 
