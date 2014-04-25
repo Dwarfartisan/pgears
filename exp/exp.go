@@ -73,7 +73,7 @@ type less struct {
 }
 
 func Less(x, y Exp) Exp {
-	return &great{x, y}
+	return &less{x, y}
 }
 func (e less) Eval(env Env) string {
 	return fmt.Sprintf("%s<%s", e.x.Eval(env), e.y.Eval(env))
