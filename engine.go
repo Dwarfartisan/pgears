@@ -159,6 +159,7 @@ func (e *Engine) Fetch(obj interface{}) error {
 		var parser = NewParser(e)
 		var sql = sel.Eval(parser)
 		stmt, err := e.Prepare(sql)
+		defer stmt.Close()
 		if err != nil {
 			return err
 		}
@@ -202,6 +203,7 @@ func (e *Engine) Insert(obj interface{}) error {
 		var parser = NewParser(e)
 		var sql = ins.Eval(parser)
 		var stmt, err = e.Prepare(sql)
+		defer stmt.Close()
 		if err != nil {
 			return err
 		}
@@ -216,7 +218,7 @@ func (e *Engine) Insert(obj interface{}) error {
 				args = append(args, arg)
 			}
 		}
-		_, err = stmt.Query(args...)
+		_, err = stmt.Exec(args...)
 		if err != nil {
 			return err
 		}
@@ -238,6 +240,7 @@ func (e *Engine) InsertMerge(obj interface{}) error {
 		var parser = NewParser(e)
 		var sql = ins.Eval(parser)
 		var stmt, err = e.Prepare(sql)
+		defer stmt.Close()
 		if err != nil {
 			return err
 		}
@@ -298,6 +301,7 @@ func (e *Engine) Update(obj interface{}) error {
 		var parser = NewParser(e)
 		var sql = upd.Eval(parser)
 		var stmt, err = e.Prepare(sql)
+		defer stmt.Close()
 		if err != nil {
 			return err
 		}
@@ -334,7 +338,7 @@ func (e *Engine) Delete(obj interface{}) error {
 				args = append(args, arg)
 			}
 		}
-		stmt.Query(args...)
+		stmt.Exec(args...)
 	} else {
 		var message = fmt.Sprintf("%v is't a regiested type",
 			fullGoName(typ))
@@ -408,6 +412,7 @@ func (r *ResultSet) LoadOne(obj interface{}) {
 
 // get the first column in current row, like scalar method
 // in .net clr's ado.net
+// this method don't close connect, need close it after used.
 func (r *ResultSet) Scalar(slot interface{}) error {
 	cols, err := r.Columns()
 	if err != nil {
