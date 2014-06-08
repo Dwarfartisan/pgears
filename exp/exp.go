@@ -102,20 +102,20 @@ func (o or) Eval(env Env) string {
 }
 
 type in struct {
-	test Exp
-	set  []Exp
+	exp   Exp
+	tests []Exp
 }
 
-func In(test Exp, set ...Exp) Exp {
-	return &in{test, set}
+func In(exp Exp, set ...Exp) Exp {
+	return &in{exp, set}
 }
 func (i in) Eval(env Env) string {
-	them := make([]string, 0, len(i.set))
-	for _, element := range i.set {
+	them := make([]string, 0, len(i.tests))
+	for _, element := range i.tests {
 		them = append(them, element.Eval(env))
 	}
 	set := strings.Join(them, ", ")
-	return fmt.Sprintf("%s in (%s)", i.test.Eval(env), set)
+	return fmt.Sprintf("%s in (%s)", i.exp.Eval(env), set)
 }
 
 type text struct {
