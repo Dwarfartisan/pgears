@@ -101,6 +101,23 @@ func (o or) Eval(env Env) string {
 	return fmt.Sprintf("(%s) or (%s)", o.x.Eval(env), o.y.Eval(env))
 }
 
+type in struct {
+	test Exp
+	set  []Exp
+}
+
+func In(test Exp, set ...Exp) Exp {
+	return &in{test, set}
+}
+func (i in) Eval(env Env) string {
+	them := make([]string, 0, len(i.set))
+	for _, element := range i.set {
+		them = append(them, element.Eval(env))
+	}
+	set := strings.Join(them, ", ")
+	return fmt.Sprintf("%s in (%s)", i.test.Eval(env), set)
+}
+
 type text struct {
 	data string
 }
