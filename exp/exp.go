@@ -370,8 +370,8 @@ type brackets struct {
 func Brackets(exp Exp) Exp {
 	return &brackets{exp}
 }
-func (b Brackets) Eval(env Env) string {
-	return fmt.Sprintf("(%s)", b.exp(env))
+func (b brackets) Eval(env Env) string {
+	return fmt.Sprintf("(%s)", b.exp.Eval(env))
 }
 
 type allfield struct {
