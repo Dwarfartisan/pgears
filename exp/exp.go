@@ -102,20 +102,20 @@ func (o or) Eval(env Env) string {
 }
 
 type in struct {
-	exp   Exp
-	tests []Exp
+	test Exp
+	set  []Exp
 }
 
-func In(exp Exp, set ...Exp) Exp {
-	return &in{exp, set}
+func In(test Exp, set ...Exp) Exp {
+	return &in{test, set}
 }
 func (i in) Eval(env Env) string {
-	them := make([]string, 0, len(i.tests))
-	for _, element := range i.tests {
+	them := make([]string, 0, len(i.set))
+	for _, element := range i.set {
 		them = append(them, element.Eval(env))
 	}
 	set := strings.Join(them, ", ")
-	return fmt.Sprintf("%s in (%s)", i.exp.Eval(env), set)
+	return fmt.Sprintf("%s in (%s)", i.test.Eval(env), set)
 }
 
 type text struct {
@@ -235,6 +235,20 @@ func (f *function) Eval(env Env) string {
 	return fmt.Sprintf("%s(%s)", f.name, strings.Join(args, ","))
 }
 
+type binOpt struct {
+	name  string
+	left  Exp
+	right Exp
+}
+
+func BinOpt(name string, left, right Exp) Exp {
+	return &binOpt{name, left, right}
+}
+func (opt *binOpt) Eval(env Env) string {
+	return fmt.Sprintf("%s %s %s", opt.left.Eval(env), opt.name,
+		opt.right.Eval(env))
+}
+
 type not struct {
 	exp Exp
 }
@@ -347,6 +361,17 @@ func (d count) Eval(env Env) string {
 		fields := strings.Join(fs, ",")
 		return fmt.Sprintf("count(%s)", fields)
 	}
+}
+
+type brackets struct {
+	exp Exp
+}
+
+func Brackets(exp Exp) Exp {
+	return &brackets{exp}
+}
+func (b Brackets) Eval(env Env) string {
+	return fmt.Sprintf("(%s)", b.exp(env))
 }
 
 type allfield struct {

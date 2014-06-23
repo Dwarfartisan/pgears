@@ -64,6 +64,7 @@ func (e *Engine) PrepareFor(typeName string, exp exp.Exp) (*Query, error) {
 		var sql = exp.Eval(parser)
 		var stmt, err = e.DB.Prepare(sql)
 		if err != nil {
+			// fmt.Println(sql)
 			return nil, err
 		}
 		return &Query{stmt, table}, nil
