@@ -31,6 +31,10 @@ type Env interface {
 	SetScope(Exp)
 }
 
+func As(exp Exp, name string) Exp {
+	return BinOpt("as", exp, Snippet(name))
+}
+
 type Exp interface {
 	Eval(Env) string
 }

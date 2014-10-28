@@ -5,25 +5,27 @@ import (
 	"strings"
 )
 
-type Upd struct{
-	tabl *Table
-	set []Exp
+type Upd struct {
+	tabl  *Table
+	set   []Exp
 	where Exp
 }
-func Update(t *Table) *Upd{
+
+func Update(t *Table) *Upd {
 	return &Upd{t, nil, nil}
 }
+
 // 一开始我想用map，但是想起来现在参数是按顺序传递的，如果用字典会有问题
 // 这里用[]*Exp，请务必传入 equal 而不是别的……拜托了……
-func (upd *Upd)Set(set... Exp) *Upd{
+func (upd *Upd) Set(set ...Exp) *Upd {
 	upd.set = set
 	return upd
-} 
-func (upd *Upd)Where(exp Exp) *Upd{
-	upd.where = exp 
+}
+func (upd *Upd) Where(exp Exp) *Upd {
+	upd.where = exp
 	return upd
 }
-func (upd *Upd)Eval(env Env) string {
+func (upd *Upd) Eval(env Env) string {
 	var scope = env.Scope()
 	env.SetScope(upd)
 	defer env.SetScope(scope)
