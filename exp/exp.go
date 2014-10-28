@@ -32,7 +32,7 @@ type Env interface {
 }
 
 func As(exp Exp, name string) Exp {
-	return BinOpt("as", exp, Snippet(name))
+	return BinOpt("as", exp, Snippet(fmt.Sprintf("\"%s\"", name)))
 }
 
 type Exp interface {
