@@ -102,6 +102,8 @@ func (fm *fieldmap) DbKeys() []string {
 	for key := range fm.dbmap {
 		ret = append(ret, key)
 	}
+	// 添加了排序 保证每次输出一致
+	sort.Strings(ret)
 	return ret
 }
 
