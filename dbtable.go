@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Dwarfartisan/pgears/exp"
 	"reflect"
+	"sort"
 )
 
 // stype 指结构字段的类型，这个类型总是指的值类型，如果该字段为指针，就取其 Elem()
@@ -92,6 +93,8 @@ func (fm *fieldmap) GoKeys() []string {
 	for key := range fm.gomap {
 		ret = append(ret, key)
 	}
+	// 添加了排序 保证每次输出一致
+	sort.Strings(ret)
 	return ret
 }
 func (fm *fieldmap) DbKeys() []string {
