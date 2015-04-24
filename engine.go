@@ -328,7 +328,6 @@ func (e *Engine) Delete(obj interface{}) error {
 		var parser = NewParser(e)
 		var sql = del.Eval(parser)
 		var stmt, err = e.Prepare(sql)
-
 		if err != nil {
 			return err
 		}
@@ -340,7 +339,6 @@ func (e *Engine) Delete(obj interface{}) error {
 				args = append(args, arg)
 			}
 		}
-
 		stmt.Exec(args...)
 	} else {
 		var message = fmt.Sprintf("%v is't a regiested type",
