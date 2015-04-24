@@ -68,7 +68,7 @@ func (e notequal) Eval(env Env) string {
  *
  * example: expr := ...Where(exp.Like(tabl.Field("name"), exp.Arg(1),)
  * 			...
- * 			expr.Q("_"+arg1+"_")
+ * 			expr.Q("%"+arg1+"%")
  */
 type like struct {
 	x, y Exp
