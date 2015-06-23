@@ -328,6 +328,7 @@ func (e *Engine) Delete(obj interface{}) error {
 		var parser = NewParser(e)
 		var sql = del.Eval(parser)
 		var stmt, err = e.Prepare(sql)
+		defer stmt.Close()
 		if err != nil {
 			return err
 		}
@@ -366,6 +367,7 @@ type Query struct {
 
 func (q *Query) Q(args ...interface{}) (*ResultSet, error) {
 	var rows, err = q.Query(args...)
+	defer rows.Close()
 	if err == nil {
 		return &ResultSet{rows, q.table}, nil
 	} else {
@@ -388,6 +390,7 @@ func (q *Query) QBy(arg interface{}) (*ResultSet, error) {
 		}
 	}
 	var rows, err = q.Query(args...)
+	defer rows.Close()
 	if err == nil {
 		return &ResultSet{rows, q.table}, nil
 	} else {
