@@ -61,6 +61,26 @@ func (e notequal) Eval(env Env) string {
 	return fmt.Sprintf("%s!=%s", e.x.Eval(env), e.y.Eval(env))
 }
 
+/*
+ * Like 方法
+ *
+ * Note: 使用此方法需要在参数值上加模糊查询条件
+ *
+ * example: expr := ...Where(exp.Like(tabl.Field("name"), exp.Arg(1),)
+ * 			...
+ * 			expr.Q("%"+arg1+"%")
+ */
+type like struct {
+	x, y Exp
+}
+
+func Like(x, y Exp) Exp {
+	return &like{x, y}
+}
+func (l like) Eval(env Env) string {
+	return fmt.Sprintf("%s like %s", l.x.Eval(env), l.y.Eval(env))
+}
+
 type great struct {
 	x, y Exp
 }
