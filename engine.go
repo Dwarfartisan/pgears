@@ -1,4 +1,4 @@
-// engine.go 中包含了对外的基本接口。核心是 Engine 类型，它可以用于单个对象的CURD操作，也可以
+// Package pgears 的 Engine 包中包含了对外的基本接口。核心是 Engine 类型，它可以用于单个对象的CURD操作，也可以
 // 生成预备好类型的查询集。或者通过 Engine 更方便的访问 pg 组件。
 package pgears
 
@@ -6,10 +6,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
+
 	"github.com/Dwarfartisan/pgears/exp"
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
-	"reflect"
+	//_ "github.com/lib/pq"
 )
 
 // Parser 是用于解析参数的独立环境，这样不同语句的 Prepare 可以安全的异步化。将来可
@@ -19,12 +20,17 @@ type Parser struct {
 	scope exp.Exp
 }
 
+// NewParser 方法构造一个新的 Parser
 func NewParser(engine *Engine) *Parser {
 	return &Parser{engine, nil}
 }
+
+//Scope 方法返回 parser 的作用域
 func (p *Parser) Scope() exp.Exp {
 	return p.scope
 }
+
+// SetScope 给 Parser 指定一个作用域，它是一个 Exp
 func (p *Parser) SetScope(exp exp.Exp) {
 	p.scope = exp
 }
@@ -32,14 +38,17 @@ func (p *Parser) SetScope(exp exp.Exp) {
 // 我原想把所有已经 Prepare过的stmt缓存下来，但是接口还没想清楚，
 // 这样是否经济也不确定，先实现一个缓存结构体反射结果的吧，这部分行为
 // 已经基本能确认了。接下来再研究数据库层的优化。
+
+// Engine 类型是管理数据源的业务类型
 type Engine struct {
 	*sql.DB
 	//table map to go type
-	tablemap map[string]*dbtable
-	gomap    map[reflect.Type]*dbtable
-	gonmap   map[string]*dbtable
+	tablemap map[string]*DbTable
+	gomap    map[reflect.Type]*DbTable
+	gonmap   map[string]*DbTable
 }
 
+// CreateEngine 方法构造一个新的 Engine 对象，error 不为空的话表示构造过程出错。
 func CreateEngine(url string) (*Engine, error) {
 	connstring, err := pq.ParseURL(url)
 	if err != nil {
@@ -49,15 +58,17 @@ func CreateEngine(url string) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Engine{conn, make(map[string]*dbtable),
-		make(map[reflect.Type]*dbtable),
-		make(map[string]*dbtable),
+	return &Engine{conn, make(map[string]*DbTable),
+		make(map[reflect.Type]*DbTable),
+		make(map[string]*DbTable),
 	}, nil
 }
 
 //我们可以预先注册一个类型，然后使用这个接口构造与之对应的查询，当我们调用最终
 //结果集的FetchOne，会在内部调用对应的merge
 //LoadOne 对应 load
+
+// PrepareFor 方法使得 SQL 表达式可以预先 Prepare
 func (e *Engine) PrepareFor(typeName string, exp exp.Exp) (*Query, error) {
 	if table, ok := e.gonmap[typeName]; ok {
 		var parser = NewParser(e)
@@ -68,13 +79,12 @@ func (e *Engine) PrepareFor(typeName string, exp exp.Exp) (*Query, error) {
 			return nil, err
 		}
 		return &Query{stmt, table}, nil
-	} else {
-		message := typeName + " not found"
-		panic(message)
 	}
+	message := typeName + " not found"
+	panic(message)
 }
 
-//这个接口不做预设的fetch等功夫，如果我们只需要做简单的查询，或者要自己手动静态化，
+// PrepareSQL 不做预设的fetch等功夫，如果我们只需要做简单的查询，或者要自己手动静态化，
 //就可以走这个接口
 func (e *Engine) PrepareSQL(exp exp.Exp) (*sql.Stmt, error) {
 	var parser = NewParser(e)
@@ -91,7 +101,7 @@ func (e *Engine) PrepareSQL(exp exp.Exp) (*sql.Stmt, error) {
 // - tag 包含 PK:"true" 的是主键，可以有复合主键，无关类型
 // - tag 包含 jsonto:"map" 的 映射到 map[string]interface{}
 // - tag 包含 jsonto:"struct" 的映射到结构，具体的结构类型是一个 reflect.Type,
-// 保存在 dbfield 类型的 gotype 字段
+// 保存在 DbField 类型的 gotype 字段
 // - 如果字段定义为值类型，表示对应的是 not null
 // - 如果定义为指针类型，表示对应的是可以为null的字段，读取后的使用应该谨慎
 // - tag 中的 field:"xxxx" 指定了对应的数据库子段名，这个不能省，一定要写。
@@ -359,9 +369,53 @@ func (engine *Engine) Scalar(expr exp.Exp, args ...interface{}) (interface{}, er
 	return data, err
 }
 
+// AutoTran 是一个简单的事务封装，只要传入一个函数，其函数体会在一个封闭的事务环境中执行，
+// 并且根据返回的错误信息决定是否Commit
+func (engine *Engine) AutoTran(fun func(*Engine, *Tran) (interface{}, error)) (interface{}, error) {
+	tx, err := engine.Begin()
+	if err != nil {
+		return nil, err
+	}
+	// 这是 AutoTran 的最终安全锁，如果 fun 内部发生了 panic，在这里会 rollback 事务，并重新抛出错误
+	defer func() {
+		err := recover()
+		if err != nil {
+			tx.Rollback()
+			panic(err)
+		}
+	}()
+	re, err := fun(engine, tx)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	tx.Commit()
+	return re, nil
+}
+
+// Begin 返回一个封装后的事务对象
+func (engine *Engine) Begin() (*Tran, error) {
+	tx, err := engine.DB.Begin()
+	if err != nil {
+		return nil, err
+	}
+	return &Tran{tx}, nil
+}
+
+// Tran 是事务对象的一个简单包装
+type Tran struct {
+	*sql.Tx
+}
+
+// Query 将一个给定的Query转为事务Query，作用类似 sql.Tx 的 Stmt 方法
+func (tran *Tran) Query(query *Query) *Query {
+	stmt := tran.Stmt(query.Stmt)
+	return &Query{stmt, query.table}
+}
+
 type Query struct {
 	*sql.Stmt
-	table *dbtable
+	table *DbTable
 }
 
 func (q *Query) Q(args ...interface{}) (*ResultSet, error) {
@@ -397,7 +451,7 @@ func (q *Query) QBy(arg interface{}) (*ResultSet, error) {
 
 type ResultSet struct {
 	*sql.Rows
-	table *dbtable
+	table *DbTable
 }
 
 //Scan a row and fetch into the object
