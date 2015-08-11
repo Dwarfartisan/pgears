@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"sort"
+
 	"github.com/Dwarfartisan/pgears/exp"
 )
 
@@ -104,6 +106,8 @@ func (fm *FieldMap) GoKeys() []string {
 	for key := range fm.gomap {
 		ret = append(ret, key)
 	}
+	// 添加了排序 保证每次输出一致
+	sort.Strings(ret)
 	return ret
 }
 
@@ -113,6 +117,8 @@ func (fm *FieldMap) DbKeys() []string {
 	for key := range fm.dbmap {
 		ret = append(ret, key)
 	}
+	// 添加了排序 保证每次输出一致
+	sort.Strings(ret)
 	return ret
 }
 

@@ -338,6 +338,7 @@ func (e *Engine) Delete(obj interface{}) error {
 		var parser = NewParser(e)
 		var sql = del.Eval(parser)
 		var stmt, err = e.Prepare(sql)
+		defer stmt.Close()
 		if err != nil {
 			return err
 		}
