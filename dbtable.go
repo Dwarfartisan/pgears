@@ -8,7 +8,7 @@ import (
 	_"time"
 	"sort"
 	"errors"
-
+	"github.com/Dwarfartisan/pgears/dbdriver"
 	"github.com/Dwarfartisan/pgears/exp"
 
 )
@@ -381,76 +381,46 @@ func (dbt *DbTable) UpdateExpr(sets []string) (expr exp.Exp, names []string) {
 
 	return exp.Update(t).Set(setExprs...).Where(cond), names
 }
-//这部分代码肯定要迁移到driver中，标个记号
-func (dbt *DbTable) getDbFieldTypeName(GoName string) string{
-
-	typ := dbt.gotype
-
-	if fldTyp,ok := (*typ).FieldByName(GoName) ; ok{
-		
-		if fldTyp.Type.Name() == "Time" {
-			return ("timestamp")
-		}
-
-		kd := fldTyp.Type.Kind()
-
-		switch kd{
-		default :
-			break
-		case reflect.Invalid:
-			break
-		case reflect.Int,reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64 ,reflect.Uintptr,reflect.Bool :{
-		 	return ("integer")
-		 	}
-		 case reflect.String ,reflect.Interface, reflect.Map,reflect.Ptr:{
-		 	return ("text")
-			}
-		 case reflect.Float32,reflect.Float64,reflect.Complex64,reflect.Complex128:{
-		 	return ("float")
-			}
-		
-		}
-		
-	}
-	panic(errors.New("this field is not in Type") )
-}
 
 
-//
+//把当前表对象直接转换成建表语句
 func (dbt * DbTable) GetCreateTableSQL() string{
-	//(t *exp.Table, pk []exp.Exp, other []exp.Exp, cond exp.Exp) 
+
 	t,pk,other,_ := dbt.Extract()
 
-	var str = fmt.Sprintf("CREATE TABLE %s (" , t.DbName)
+	if dbdriver.Sqltype == dbdriver.Sqlite{
+		var str = fmt.Sprintf("CREATE TABLE %s (" , t.DbName)
 
-	for _,ep := range pk {
-		if f, ok := ep.(*exp.Field); ok {
-			str = fmt.Sprintf(" %s %s %s, ",str,f.DbName,dbt.getDbFieldTypeName(f.GoName))
-		}else{
-			panic(errors.New("create Table failed ,pk field is null"))
+		for _,ep := range pk {
+			if f, ok := ep.(*exp.Field); ok {
+				str = fmt.Sprintf(" %s %s %s, ",str,f.DbName,dbdriver.GetDbFieldTypeName(dbt.gotype,f.GoName))
+			}else{
+				panic(errors.New("create Table failed ,pk field is null"))
+			}
 		}
+
+		for _,ep := range other{
+			if f , ok := ep.(*exp.Field);ok{
+				str = fmt.Sprintf(" %s %s %s ,",str,f.DbName,dbdriver.GetDbFieldTypeName(dbt.gotype,f.GoName))
+			}else{
+				panic(errors.New("create Table failed ,other field is null"))
+			}
+		}
+
+		//生成pk
+		for _,ep := range pk {
+			if f, ok := ep.(*exp.Field); ok {
+
+				str = fmt.Sprintf(" %s %s (%s)",str,"PRIMARY KEY",f.DbName)
+			}else{
+				panic(errors.New("create Table failed ,pk field is null"))
+			}
+		}
+		return str + ")"
 	}
 
-
-	for _,ep := range other{
-		if f , ok := ep.(*exp.Field);ok{
-			str = fmt.Sprintf(" %s %s %s ,",str,f.DbName,dbt.getDbFieldTypeName(f.GoName))
-		}else{
-			panic(errors.New("create Table failed ,other field is null"))
-		}
-	}
-
-	//生成pk
-	for _,ep := range pk {
-		if f, ok := ep.(*exp.Field); ok {
-
-			str = fmt.Sprintf(" %s %s (%s)",str,"PRIMARY KEY",f.DbName)
-		}else{
-			panic(errors.New("create Table failed ,pk field is null"))
-		}
-	}
-	fmt.Println(str)
-	return str + ")"
+	panic(errors.New("current function is not supported by this dbtype"))
+	
 }
 
 // 下面这个内部方法用于构造类似 json/Unmarshal 方法的加载逻辑

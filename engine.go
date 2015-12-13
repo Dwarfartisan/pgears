@@ -62,6 +62,7 @@ func CreateEngine(url string) (*Engine, error) {
 			if err != nil{
 				return nil,err
 			}
+			dbdriver.Sqltype = dbdriver.Sqlite
 			return &Engine{conn, make(map[string]*DbTable),
 				make(map[reflect.Type]*DbTable),
 				make(map[string]*DbTable),
@@ -72,6 +73,7 @@ func CreateEngine(url string) (*Engine, error) {
 			if err != nil{
 				return nil,err
 			}
+			dbdriver.Sqltype = dbdriver.Postgres
 			return &Engine{conn, make(map[string]*DbTable),
 				make(map[reflect.Type]*DbTable),
 				make(map[string]*DbTable),
