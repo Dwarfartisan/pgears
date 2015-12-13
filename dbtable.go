@@ -7,8 +7,10 @@ import (
 	"reflect"
 
 	"sort"
+	"errors"
 
 	"github.com/Dwarfartisan/pgears/exp"
+
 )
 
 // DbField 结构用 Go 语言表述一个数据库字段的结构。
@@ -170,7 +172,7 @@ func NewDbTable(typ *reflect.Type, tablename string) *DbTable {
 // DbTable 是已经解析过的结构体和数据表的定义对照表，所以从中可以生成表、主键和（非主键）数据字段
 // 的列表以及用于 where 的 筛选条件（即所有主键的 and 表达式）
 
-// Extract 方从 DbTable 结构中得到分别表示主键、字段表达式和条件表达式的部分，便于拼接
+// Extract 方法从 DbTable 结构中得到分别表示主键、字段表达式和条件表达式的部分，便于拼接
 func (dbt *DbTable) Extract() (t *exp.Table, pk []exp.Exp, other []exp.Exp, cond exp.Exp) {
 	t = exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
 	pk = make([]exp.Exp, 0, dbt.Pk.Length())
@@ -380,6 +382,74 @@ func (dbt *DbTable) UpdateExpr(sets []string) (expr exp.Exp, names []string) {
 	return exp.Update(t).Set(setExprs...).Where(cond), names
 }
 
+func (dbt *DbTable) getDbFieldTypeName(GoName string) string{
+
+	typ := dbt.gotype
+
+	if fldTyp,ok := (*typ).FieldByName(GoName) ; ok{
+
+		kd := fldTyp.Type.Kind()
+		switch kd{
+		default :
+			break
+		case reflect.Invalid:
+			break
+		case reflect.Int,reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64 ,reflect.Uintptr,reflect.Bool :{
+		 	return ("integer")
+		 	break
+		 	}
+		 case reflect.String ,reflect.Interface, reflect.Map,reflect.Ptr:{
+		 	return ("text")
+		 	break
+			}
+		 case reflect.Float32,reflect.Float64,reflect.Complex64,reflect.Complex128:{
+		 	return ("float")
+		 	break
+			}
+		
+		}
+		
+	}
+	panic(errors.New("this field is not in Type") )
+}
+
+
+//
+func (dbt * DbTable) GetCreateTableSQL() string{
+	//(t *exp.Table, pk []exp.Exp, other []exp.Exp, cond exp.Exp) 
+	t,pk,other,_ := dbt.Extract()
+
+	var str = fmt.Sprintf("CREATE TABLE %s (" , t.DbName)
+
+	for _,ep := range pk {
+		if f, ok := ep.(*exp.Field); ok {
+			str = fmt.Sprintf(" %s %s %s, ",str,f.DbName,dbt.getDbFieldTypeName(f.GoName))
+		}else{
+			panic(errors.New("create Table failed ,pk field is null"))
+		}
+	}
+
+
+	for _,ep := range other{
+		if f , ok := ep.(*exp.Field);ok{
+			str = fmt.Sprintf(" %s %s %s ,",str,f.DbName,dbt.getDbFieldTypeName(f.GoName))
+		}else{
+			panic(errors.New("create Table failed ,other field is null"))
+		}
+	}
+
+	//生成pk
+	for _,ep := range pk {
+		if f, ok := ep.(*exp.Field); ok {
+
+			str = fmt.Sprintf(" %s %s (%s)",str,"PRIMARY KEY",f.DbName)
+		}else{
+			panic(errors.New("create Table failed ,pk field is null"))
+		}
+	}
+	return str + ")"
+}
+
 // 下面这个内部方法用于构造类似 json/Unmarshal 方法的加载逻辑
 // 因为golang还没有泛型，所以如果滥用这些方法，传错类型导致panic，请自挂东南枝(￣^￣)ゞ
 // 这个方法本身不执行加载，而是生成加载函数的变量，这样有两个好处，一个是可以套强类型的壳
@@ -411,6 +481,8 @@ func (dbt *DbTable) makeLoads() {
 	dbt.returning = makeFetchHelper(dbgen)
 	dbt.all = makeFetchHelper(fields)
 }
+
+
 func makeFetchHelper(FieldMap map[string]*DbField) structFetchFunc {
 
 	var refunc = func(rows *sql.Rows, obj interface{}) {

@@ -4,11 +4,14 @@ package pgears
 import (
 	"encoding/json"
 	"reflect"
+	"fmt"
 )
 
 // 这个是动态选择的封装接口。除了内置类型的extract，它还提供了对json类型的提取。
 func ExtractField(val reflect.Value, field reflect.StructField) interface{} {
+	fmt.Println(val)
 	itf := val.Interface()
+	
 	if field.Tag.Get("jsonto") != "" {
 		j, err := json.Marshal(itf)
 		if err != nil {
