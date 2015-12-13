@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-
+	_"time"
 	"sort"
 	"errors"
 
@@ -381,14 +381,19 @@ func (dbt *DbTable) UpdateExpr(sets []string) (expr exp.Exp, names []string) {
 
 	return exp.Update(t).Set(setExprs...).Where(cond), names
 }
-
+//这部分代码肯定要迁移到driver中，标个记号
 func (dbt *DbTable) getDbFieldTypeName(GoName string) string{
 
 	typ := dbt.gotype
 
 	if fldTyp,ok := (*typ).FieldByName(GoName) ; ok{
+		
+		if fldTyp.Type.Name() == "Time" {
+			return ("timestamp")
+		}
 
 		kd := fldTyp.Type.Kind()
+
 		switch kd{
 		default :
 			break
@@ -396,15 +401,12 @@ func (dbt *DbTable) getDbFieldTypeName(GoName string) string{
 			break
 		case reflect.Int,reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64 ,reflect.Uintptr,reflect.Bool :{
 		 	return ("integer")
-		 	break
 		 	}
 		 case reflect.String ,reflect.Interface, reflect.Map,reflect.Ptr:{
 		 	return ("text")
-		 	break
 			}
 		 case reflect.Float32,reflect.Float64,reflect.Complex64,reflect.Complex128:{
 		 	return ("float")
-		 	break
 			}
 		
 		}
@@ -447,6 +449,7 @@ func (dbt * DbTable) GetCreateTableSQL() string{
 			panic(errors.New("create Table failed ,pk field is null"))
 		}
 	}
+	fmt.Println(str)
 	return str + ")"
 }
 
