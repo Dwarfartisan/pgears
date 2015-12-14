@@ -128,3 +128,7 @@ PostgreSQL 中使用 null 那么方便和安全——由于有 interface{} 存�
 		models.Engine.CreateTable("你的model表，注意此处需要填写完成路径")
 		models...等单元测试的编码。
 	}
+
+1.0.2
+增加了tag里面对db fieldtype 的支持定义，具体可以参见example里面的例子。
+
