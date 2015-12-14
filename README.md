@@ -74,7 +74,7 @@ PGrears 在这方面计划采取一个折衷的方式。一方面我们也应该
 我认为这种风格值得鼓励，将来无论在文档还是工具上都应该尽量予以支持。
 
 当然，我觉得根本解决方案还是要语言内置一个足够强的代码生成技术，但是目前没有。朋友推荐了一个类似
-CodeSmith的 [[http://clipperhouse.github.io/gen]] 项目，可以尝试。不过 PGears
+CodeSmith的 http://clipperhouse.github.io/gen 项目，可以尝试。不过 PGears
 会尝试内置一个类似的东西。
 
 在类似 sqlexpress 这一层上，会尽量的提供一些特有功能和语法的支持。无论如何，PostgreSQL 的
