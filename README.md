@@ -130,5 +130,6 @@ PostgreSQL 中使用 null 那么方便和安全——由于有 interface{} 存�
 	}
 
 1.0.2
+
 增加了tag里面对db fieldtype 的支持定义，具体可以参见example里面的例子。
 
