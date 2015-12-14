@@ -384,7 +384,7 @@ func (dbt *DbTable) UpdateExpr(sets []string) (expr exp.Exp, names []string) {
 
 
 //把当前表对象直接转换成建表语句
-func (dbt * DbTable) GetCreateTableSQL() string{
+func (dbt *DbTable) GetCreateTableSQL() string{
 
 	t,pk,other,_ := dbt.Extract()
 
@@ -393,7 +393,7 @@ func (dbt * DbTable) GetCreateTableSQL() string{
 
 		for _,ep := range pk {
 			if f, ok := ep.(*exp.Field); ok {
-				str = fmt.Sprintf(" %s %s %s, ",str,f.DbName,dbdriver.GetDbFieldTypeName(dbt.gotype,f.GoName))
+				str = fmt.Sprintf(" %s %s %s, ",str,f.DbName,dbdriver.GetSqlite3DbFieldTypeName(dbt.gotype,f.GoName))
 			}else{
 				panic(errors.New("create Table failed ,pk field is null"))
 			}
@@ -401,7 +401,7 @@ func (dbt * DbTable) GetCreateTableSQL() string{
 
 		for _,ep := range other{
 			if f , ok := ep.(*exp.Field);ok{
-				str = fmt.Sprintf(" %s %s %s ,",str,f.DbName,dbdriver.GetDbFieldTypeName(dbt.gotype,f.GoName))
+				str = fmt.Sprintf(" %s %s %s ,",str,f.DbName,dbdriver.GetSqlite3DbFieldTypeName(dbt.gotype,f.GoName))
 			}else{
 				panic(errors.New("create Table failed ,other field is null"))
 			}
@@ -421,6 +421,10 @@ func (dbt * DbTable) GetCreateTableSQL() string{
 
 	panic(errors.New("current function is not supported by this dbtype"))
 	
+}
+
+func (dbt *DbTable) DropTable() string{
+	return fmt.Sprintf("DROP TABLE %s",dbt.tablename)
 }
 
 // 下面这个内部方法用于构造类似 json/Unmarshal 方法的加载逻辑

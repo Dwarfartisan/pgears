@@ -108,9 +108,29 @@ func (e *Engine) PrepareFor(typeName string, exp exp.Exp) (*Query, error) {
 //增加建表功能
 // add by zhaonf 2015.12.11 5:16
 //主要提供脚本进行测试使用
-func (e *Engine) CreateTable(typeName string) (string, error){
+func (e *Engine) CreateTable(typeName string) error{
 	if table, ok := e.gonmap[typeName]; ok {
-		return table.GetCreateTableSQL(),nil
+		sql := table.GetCreateTableSQL()
+		var _, err = e.DB.Exec(sql)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	message := typeName + " not found"
+	panic(message)
+}
+
+//add by zhaonf 2015.12.14 10:29
+
+func (e *Engine) DropTable(typeName string) error{
+	if table, ok := e.gonmap[typeName]; ok {
+		sql := table.DropTable()
+		var _, err = e.DB.Exec(sql)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	message := typeName + " not found"
 	panic(message)
@@ -245,11 +265,13 @@ func (e *Engine) Insert(obj interface{}) error {
 		var ins = exp.Insert(tabl, fs...)
 		var parser = NewParser(e)
 		var sql = ins.Eval(parser)
+		fmt.Println(sql)
 		var stmt, err = e.Prepare(sql)
 
 		defer stmt.Close()
 
 		if err != nil {
+			fmt.Println(err)
 			return err
 		}
 		var l = len(pk)
