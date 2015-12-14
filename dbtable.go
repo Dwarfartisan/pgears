@@ -19,6 +19,7 @@ import (
 type DbField struct {
 	GoName  string
 	DbName  string
+	DbFieldType string
 	IsPK    bool
 	DbGen   bool
 	NotNull bool
@@ -27,17 +28,24 @@ type DbField struct {
 
 // NewDbField 是 DbField 的内部构造函数，通常由其它pgears内部类型调用
 func NewDbField(fieldStruct *reflect.StructField) *DbField {
+
 	var ret = DbField{}
+
 	ret.GoName = fieldStruct.Name
 	ftype := fieldStruct.Type
+
 	switch ftype.Kind() {
 	case reflect.Ptr, reflect.Interface:
 		ret.NotNull = false
 	default:
 		ret.NotNull = true
 	}
+
 	var tag = fieldStruct.Tag
+	
 	ret.DbName = tag.Get("field")
+	ret.DbFieldType = tag.Get("fieldtype")
+
 	if pk := tag.Get("pk"); pk == "true" {
 		ret.IsPK = true
 	}
@@ -385,15 +393,14 @@ func (dbt *DbTable) UpdateExpr(sets []string) (expr exp.Exp, names []string) {
 
 //把当前表对象直接转换成建表语句
 func (dbt *DbTable) GetCreateTableSQL() string{
-
 	t,pk,other,_ := dbt.Extract()
-
 	if dbdriver.Sqltype == dbdriver.Sqlite{
 		var str = fmt.Sprintf("CREATE TABLE %s (" , t.DbName)
-
 		for _,ep := range pk {
 			if f, ok := ep.(*exp.Field); ok {
-				str = fmt.Sprintf(" %s %s %s, ",str,f.DbName,dbdriver.GetSqlite3DbFieldTypeName(dbt.gotype,f.GoName))
+				if fldTyp,ok := (*dbt.gotype).FieldByName(f.GoName) ; ok{
+					str = fmt.Sprintf(" %s %s %s, ",str,f.DbName,fldTyp.Tag.Get("fieldtype"))
+				}
 			}else{
 				panic(errors.New("create Table failed ,pk field is null"))
 			}
@@ -401,7 +408,9 @@ func (dbt *DbTable) GetCreateTableSQL() string{
 
 		for _,ep := range other{
 			if f , ok := ep.(*exp.Field);ok{
-				str = fmt.Sprintf(" %s %s %s ,",str,f.DbName,dbdriver.GetSqlite3DbFieldTypeName(dbt.gotype,f.GoName))
+				if fldTyp,ok := (*dbt.gotype).FieldByName(f.GoName) ; ok{
+					str = fmt.Sprintf(" %s %s %s, ",str,f.DbName,fldTyp.Tag.Get("fieldtype"))
+				}
 			}else{
 				panic(errors.New("create Table failed ,other field is null"))
 			}
@@ -410,15 +419,13 @@ func (dbt *DbTable) GetCreateTableSQL() string{
 		//生成pk
 		for _,ep := range pk {
 			if f, ok := ep.(*exp.Field); ok {
-
 				str = fmt.Sprintf(" %s %s (%s)",str,"PRIMARY KEY",f.DbName)
 			}else{
 				panic(errors.New("create Table failed ,pk field is null"))
 			}
 		}
-		return str + ")"
+		return str + ");"
 	}
-
 	panic(errors.New("current function is not supported by this dbtype"))
 	
 }

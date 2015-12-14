@@ -111,6 +111,7 @@ func (e *Engine) PrepareFor(typeName string, exp exp.Exp) (*Query, error) {
 func (e *Engine) CreateTable(typeName string) error{
 	if table, ok := e.gonmap[typeName]; ok {
 		sql := table.GetCreateTableSQL()
+
 		var _, err = e.DB.Exec(sql)
 		if err != nil {
 			return err
@@ -122,7 +123,7 @@ func (e *Engine) CreateTable(typeName string) error{
 }
 
 //add by zhaonf 2015.12.14 10:29
-
+//主要提供脚本测试，不要随意在生产和测试环境使用，只可以在脚本测试中玩哦！
 func (e *Engine) DropTable(typeName string) error{
 	if table, ok := e.gonmap[typeName]; ok {
 		sql := table.DropTable()
@@ -265,7 +266,7 @@ func (e *Engine) Insert(obj interface{}) error {
 		var ins = exp.Insert(tabl, fs...)
 		var parser = NewParser(e)
 		var sql = ins.Eval(parser)
-		fmt.Println(sql)
+		//fmt.Println(sql)
 		var stmt, err = e.Prepare(sql)
 
 		defer stmt.Close()

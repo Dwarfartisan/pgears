@@ -18,9 +18,20 @@ func SqliteConnection(url string) (*sql.DB, error){
 	return conn ,err
 }
 
+/**
+确认tag的dbfieldType是否正确
+*/
+func CheckType(GoType *reflect.Type , GoName string,RealType string) (string,bool){
+	str := getSqlite3DbFieldTypeName(GoType,GoName)
+	if str != RealType{
+		return "",false
+	}
+	return str,true
+}
+
 
 /*通过反射实体字段类型翻译成数据库字段类型*/
-func GetSqlite3DbFieldTypeName(Gotype *reflect.Type,GoName string) string{
+func getSqlite3DbFieldTypeName(Gotype *reflect.Type,GoName string) string{
 
 	if fldTyp,ok := (*Gotype).FieldByName(GoName) ; ok{
 		if fldTyp.Type.Name() == "Time" {
@@ -49,3 +60,6 @@ func GetSqlite3DbFieldTypeName(Gotype *reflect.Type,GoName string) string{
 	}
 	panic(errors.New("this field is not in Type") )
 }
+
+
+
