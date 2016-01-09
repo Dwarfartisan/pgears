@@ -7,9 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-
+	"strings"
+	"github.com/Dwarfartisan/pgears/dbdriver"
 	"github.com/Dwarfartisan/pgears/exp"
-	"github.com/lib/pq"
 	//_ "github.com/lib/pq"
 )
 
@@ -50,18 +50,38 @@ type Engine struct {
 
 // CreateEngine 方法构造一个新的 Engine 对象，error 不为空的话表示构造过程出错。
 func CreateEngine(url string) (*Engine, error) {
-	connstring, err := pq.ParseURL(url)
-	if err != nil {
-		return nil, err
+	//if (url == nil ) return nil , errors.New("url is not nil")
+	constr := strings.Split(url,"://")
+	if constr == nil{
+		return nil, errors.New("connect url string is error")
 	}
-	conn, err := sql.Open("postgres", connstring)
-	if err != nil {
-		return nil, err
+
+	switch {
+		case constr[0] == "sqlite":{
+			conn,err := dbdriver.SqliteConnection(constr[1])
+			if err != nil{
+				return nil,err
+			}
+			dbdriver.Sqltype = dbdriver.Sqlite
+			return &Engine{conn, make(map[string]*DbTable),
+				make(map[reflect.Type]*DbTable),
+				make(map[string]*DbTable),
+			}, nil
+		}
+		case constr[0]  == "postgres":{
+			conn,err := dbdriver.PostpresConnection(url)
+			if err != nil{
+				return nil,err
+			}
+			dbdriver.Sqltype = dbdriver.Postgres
+			return &Engine{conn, make(map[string]*DbTable),
+				make(map[reflect.Type]*DbTable),
+				make(map[string]*DbTable),
+			}, nil
+		}
+		default:
+			return nil, errors.New("current database is not supported")
 	}
-	return &Engine{conn, make(map[string]*DbTable),
-		make(map[reflect.Type]*DbTable),
-		make(map[string]*DbTable),
-	}, nil
 }
 
 //我们可以预先注册一个类型，然后使用这个接口构造与之对应的查询，当我们调用最终
@@ -70,15 +90,48 @@ func CreateEngine(url string) (*Engine, error) {
 
 // PrepareFor 方法使得 SQL 表达式可以预先 Prepare
 func (e *Engine) PrepareFor(typeName string, exp exp.Exp) (*Query, error) {
+
 	if table, ok := e.gonmap[typeName]; ok {
 		var parser = NewParser(e)
 		var sql = exp.Eval(parser)
 		var stmt, err = e.DB.Prepare(sql)
 		if err != nil {
-			// fmt.Println(sql)
+			//fmt.Println(sql)
 			return nil, err
 		}
 		return &Query{stmt, table}, nil
+	}
+	message := typeName + " not found"
+	panic(message)
+}
+
+//增加建表功能
+// add by zhaonf 2015.12.11 5:16
+//主要提供脚本进行测试使用
+func (e *Engine) CreateTable(typeName string) error{
+	if table, ok := e.gonmap[typeName]; ok {
+		sql := table.GetCreateTableSQL()
+
+		var _, err = e.DB.Exec(sql)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	message := typeName + " not found"
+	panic(message)
+}
+
+//add by zhaonf 2015.12.14 10:29
+//主要提供脚本测试，不要随意在生产和测试环境使用，只可以在脚本测试中玩哦！
+func (e *Engine) DropTable(typeName string) error{
+	if table, ok := e.gonmap[typeName]; ok {
+		sql := table.DropTable()
+		var _, err = e.DB.Exec(sql)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	message := typeName + " not found"
 	panic(message)
@@ -213,9 +266,13 @@ func (e *Engine) Insert(obj interface{}) error {
 		var ins = exp.Insert(tabl, fs...)
 		var parser = NewParser(e)
 		var sql = ins.Eval(parser)
+		//fmt.Println(sql)
 		var stmt, err = e.Prepare(sql)
+
 		defer stmt.Close()
+
 		if err != nil {
+			fmt.Println(err)
 			return err
 		}
 		var l = len(pk)

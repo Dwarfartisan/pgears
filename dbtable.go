@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-
+	_"time"
 	"sort"
-
+	"errors"
+	"github.com/Dwarfartisan/pgears/dbdriver"
 	"github.com/Dwarfartisan/pgears/exp"
+
 )
 
 // DbField 结构用 Go 语言表述一个数据库字段的结构。
@@ -17,6 +19,7 @@ import (
 type DbField struct {
 	GoName  string
 	DbName  string
+	DbFieldType string
 	IsPK    bool
 	DbGen   bool
 	NotNull bool
@@ -25,17 +28,24 @@ type DbField struct {
 
 // NewDbField 是 DbField 的内部构造函数，通常由其它pgears内部类型调用
 func NewDbField(fieldStruct *reflect.StructField) *DbField {
+
 	var ret = DbField{}
+
 	ret.GoName = fieldStruct.Name
 	ftype := fieldStruct.Type
+
 	switch ftype.Kind() {
 	case reflect.Ptr, reflect.Interface:
 		ret.NotNull = false
 	default:
 		ret.NotNull = true
 	}
+
 	var tag = fieldStruct.Tag
+	
 	ret.DbName = tag.Get("field")
+	ret.DbFieldType = tag.Get("fieldtype")
+
 	if pk := tag.Get("pk"); pk == "true" {
 		ret.IsPK = true
 	}
@@ -170,7 +180,7 @@ func NewDbTable(typ *reflect.Type, tablename string) *DbTable {
 // DbTable 是已经解析过的结构体和数据表的定义对照表，所以从中可以生成表、主键和（非主键）数据字段
 // 的列表以及用于 where 的 筛选条件（即所有主键的 and 表达式）
 
-// Extract 方从 DbTable 结构中得到分别表示主键、字段表达式和条件表达式的部分，便于拼接
+// Extract 方法从 DbTable 结构中得到分别表示主键、字段表达式和条件表达式的部分，便于拼接
 func (dbt *DbTable) Extract() (t *exp.Table, pk []exp.Exp, other []exp.Exp, cond exp.Exp) {
 	t = exp.TableAs(fullGoName(*dbt.gotype), dbt.tablename)
 	pk = make([]exp.Exp, 0, dbt.Pk.Length())
@@ -380,6 +390,50 @@ func (dbt *DbTable) UpdateExpr(sets []string) (expr exp.Exp, names []string) {
 	return exp.Update(t).Set(setExprs...).Where(cond), names
 }
 
+
+//把当前表对象直接转换成建表语句
+func (dbt *DbTable) GetCreateTableSQL() string{
+	t,pk,other,_ := dbt.Extract()
+	if dbdriver.Sqltype == dbdriver.Sqlite{
+		var str = fmt.Sprintf("CREATE TABLE %s (" , t.DbName)
+		for _,ep := range pk {
+			if f, ok := ep.(*exp.Field); ok {
+				if fldTyp,ok := (*dbt.gotype).FieldByName(f.GoName) ; ok{
+					str = fmt.Sprintf(" %s %s %s, ",str,f.DbName,fldTyp.Tag.Get("fieldtype"))
+				}
+			}else{
+				panic(errors.New("create Table failed ,pk field is null"))
+			}
+		}
+
+		for _,ep := range other{
+			if f , ok := ep.(*exp.Field);ok{
+				if fldTyp,ok := (*dbt.gotype).FieldByName(f.GoName) ; ok{
+					str = fmt.Sprintf(" %s %s %s, ",str,f.DbName,fldTyp.Tag.Get("fieldtype"))
+				}
+			}else{
+				panic(errors.New("create Table failed ,other field is null"))
+			}
+		}
+
+		//生成pk
+		for _,ep := range pk {
+			if f, ok := ep.(*exp.Field); ok {
+				str = fmt.Sprintf(" %s %s (%s)",str,"PRIMARY KEY",f.DbName)
+			}else{
+				panic(errors.New("create Table failed ,pk field is null"))
+			}
+		}
+		return str + ");"
+	}
+	panic(errors.New("current function is not supported by this dbtype"))
+	
+}
+
+func (dbt *DbTable) DropTable() string{
+	return fmt.Sprintf("DROP TABLE %s",dbt.tablename)
+}
+
 // 下面这个内部方法用于构造类似 json/Unmarshal 方法的加载逻辑
 // 因为golang还没有泛型，所以如果滥用这些方法，传错类型导致panic，请自挂东南枝(￣^￣)ゞ
 // 这个方法本身不执行加载，而是生成加载函数的变量，这样有两个好处，一个是可以套强类型的壳
@@ -411,6 +465,8 @@ func (dbt *DbTable) makeLoads() {
 	dbt.returning = makeFetchHelper(dbgen)
 	dbt.all = makeFetchHelper(fields)
 }
+
+
 func makeFetchHelper(FieldMap map[string]*DbField) structFetchFunc {
 
 	var refunc = func(rows *sql.Rows, obj interface{}) {

@@ -74,7 +74,7 @@ PGrears 在这方面计划采取一个折衷的方式。一方面我们也应该
 我认为这种风格值得鼓励，将来无论在文档还是工具上都应该尽量予以支持。
 
 当然，我觉得根本解决方案还是要语言内置一个足够强的代码生成技术，但是目前没有。朋友推荐了一个类似
-CodeSmith的 [[http://clipperhouse.github.io/gen]] 项目，可以尝试。不过 PGears
+CodeSmith的 http://clipperhouse.github.io/gen 项目，可以尝试。不过 PGears
 会尝试内置一个类似的东西。
 
 在类似 sqlexpress 这一层上，会尽量的提供一些特有功能和语法的支持。无论如何，PostgreSQL 的
@@ -107,3 +107,29 @@ PostgreSQL 中使用 null 那么方便和安全——由于有 interface{} 存�
 目前的目标就是尽快做出一个简单够用的工具，我手头好几个网站项目要用到……然后，剩下的，就看心情吧……
 
 ——刘鑫<Mars Liu>
+
+# 版本
+
+1.0.1（假设刘老师的版本定为1.0)
+
+增加支持sqlite Debug测试,需要下载 https://github.com/mattn/go-sqlite3 组件
+
+>注意测试用的dbUrl ，必须用 sqlite://./test.db，你可以理解成sqlite:// 以后再扩展其他数据库也会如此考虑。
+
+	package auth
+
+	import (
+		"你的model目录"
+		_"github.com/Dwarfartisan/pgears/exp"
+		"testing"
+	)
+
+	func TestServer2(t * testing.T){
+		models.Engine.CreateTable("你的model表，注意此处需要填写完成路径")
+		models...等单元测试的编码。
+	}
+
+1.0.2
+
+增加了tag里面对db fieldtype 的支持定义，具体可以参见example里面的例子。
+

@@ -4,6 +4,7 @@ package pgears
 import (
 	"encoding/json"
 	"reflect"
+	_"fmt"
 )
 
 // 这个是动态选择的封装接口。除了内置类型的extract，它还提供了对json类型的提取。
