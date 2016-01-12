@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"github.com/Dwarfartisan/pgears/dbdriver"
 	"github.com/lib/pq"
 )
 
@@ -59,6 +60,7 @@ func NotEqual(x, y Exp) Exp {
 func (e notequal) Eval(env Env) string {
 	return fmt.Sprintf("%s!=%s", e.x.Eval(env), e.y.Eval(env))
 }
+
 
 /*
  * Like 方法
@@ -265,9 +267,23 @@ type binOpt struct {
 }
 
 func BinOpt(name string, left, right Exp) Exp {
+	if dbdriver.Sqltype == dbdriver.DB_SQLITE{
+		if name == "#>>" {
+			return &binOpt{ dbdriver.JsonQuerySqlite3(name),
+				left,
+				right }
+		}
+	}
+
 	return &binOpt{name, left, right}
 }
 func (opt *binOpt) Eval(env Env) string {
+	if dbdriver.Sqltype == dbdriver.DB_SQLITE{
+		if opt.name == "JSONP" {
+
+			return fmt.Sprintf("%s (%s ,%s)", opt.name,opt.left.Eval(env),opt.right.Eval(env))
+		}
+	}
 	return fmt.Sprintf("%s %s %s", opt.left.Eval(env), opt.name,
 		opt.right.Eval(env))
 }

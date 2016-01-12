@@ -11,7 +11,7 @@ import(
 
 
 func SqliteConnection(url string) (*sql.DB, error){
-	conn, err := sql.Open("sqlite3",url)
+	conn, err := sql.Open("sqlite3_custom",url)
 	if err != nil {
 		return nil ,err
 	}

@@ -394,7 +394,7 @@ func (dbt *DbTable) UpdateExpr(sets []string) (expr exp.Exp, names []string) {
 //把当前表对象直接转换成建表语句
 func (dbt *DbTable) GetCreateTableSQL() string{
 	t,pk,other,_ := dbt.Extract()
-	if dbdriver.Sqltype == dbdriver.Sqlite{
+	if dbdriver.Sqltype == dbdriver.DB_SQLITE{
 		var str = fmt.Sprintf("CREATE TABLE %s (" , t.DbName)
 		for _,ep := range pk {
 			if f, ok := ep.(*exp.Field); ok {

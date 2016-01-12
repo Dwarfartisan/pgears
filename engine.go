@@ -58,22 +58,24 @@ func CreateEngine(url string) (*Engine, error) {
 
 	switch {
 		case constr[0] == "sqlite":{
+			dbdriver.Sqltype = dbdriver.DB_SQLITE
 			conn,err := dbdriver.SqliteConnection(constr[1])
 			if err != nil{
 				return nil,err
 			}
-			dbdriver.Sqltype = dbdriver.Sqlite
+
 			return &Engine{conn, make(map[string]*DbTable),
 				make(map[reflect.Type]*DbTable),
 				make(map[string]*DbTable),
 			}, nil
 		}
 		case constr[0]  == "postgres":{
+			dbdriver.Sqltype = dbdriver.DB_POSTGRES
 			conn,err := dbdriver.PostpresConnection(url)
 			if err != nil{
 				return nil,err
 			}
-			dbdriver.Sqltype = dbdriver.Postgres
+
 			return &Engine{conn, make(map[string]*DbTable),
 				make(map[reflect.Type]*DbTable),
 				make(map[string]*DbTable),
@@ -94,9 +96,9 @@ func (e *Engine) PrepareFor(typeName string, exp exp.Exp) (*Query, error) {
 	if table, ok := e.gonmap[typeName]; ok {
 		var parser = NewParser(e)
 		var sql = exp.Eval(parser)
+		//fmt.Println(sql)
 		var stmt, err = e.DB.Prepare(sql)
 		if err != nil {
-			//fmt.Println(sql)
 			return nil, err
 		}
 		return &Query{stmt, table}, nil
@@ -272,7 +274,6 @@ func (e *Engine) Insert(obj interface{}) error {
 		defer stmt.Close()
 
 		if err != nil {
-			fmt.Println(err)
 			return err
 		}
 		var l = len(pk)
