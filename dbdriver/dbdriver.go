@@ -5,6 +5,6 @@ var Sqltype int = 1 //default is Postgres
 
 
 const (
-	Sqlite = iota
-	Postgres
+	DB_SQLITE = 1
+	DB_POSTGRES = 2
 )
