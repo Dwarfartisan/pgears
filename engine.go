@@ -270,10 +270,10 @@ func (e *Engine) Insert(obj interface{}) error {
 		var sql = ins.Eval(parser)
 		//fmt.Println(sql)
 		var stmt, err = e.Prepare(sql)
-
 		defer stmt.Close()
 
 		if err != nil {
+			fmt.Println(err)
 			return err
 		}
 		var l = len(pk)
@@ -325,6 +325,7 @@ func (e *Engine) InsertMerge(obj interface{}) error {
 		rset, err := stmt.Query(args...)
 		defer rset.Close()
 		if err != nil {
+			fmt.Println(err)
 			return err
 		}
 		if rset.Next() {
@@ -544,6 +545,43 @@ func (tran *Tran) Insert(obj interface{}) error {
 	}
 }
 
+// insert merge 的设定是insert仅插入非dbgen数据，所有dbgen字段从数据库加载load后的
+// 这个逻辑用于那些主键在数据库层生成的场合，例如自增 id 主键，服务端uuid，时间戳等
+func (tran *Tran) InsertMerge(obj interface{}) error {
+	var typ = reflect.TypeOf(obj).Elem()
+	if m, ok := tran.db.gomap[typ]; ok {
+		var ins, names = m.MergeInsertExpr()
+		var parser = NewParser(tran.db)
+		var sql = ins.Eval(parser)
+		var stmt, err = tran.Prepare(sql)
+		defer stmt.Close()
+		if err != nil {
+			return err
+		}
+		var l = len(names)
+		var args = make([]interface{}, 0, l)
+		// 因为要填充，无论如何这里也要传入一个指针，不是指针的请自觉panic……
+		var val = reflect.ValueOf(obj).Elem()
+		for _, name := range names {
+			var field, _ = typ.FieldByName(name)
+			var arg interface{} = ExtractField(val.FieldByName(name), field)
+			args = append(args, arg)
+		}
+		rset, err := stmt.Query(args...)
+		defer rset.Close()
+		if err != nil {
+			return err
+		}
+		if rset.Next() {
+			m.returning(rset, obj)
+		}
+		return nil
+	} else {
+		var message = fmt.Sprintf("%s is't a regiested type",
+			fullGoName(typ))
+		return errors.New(message)
+	}
+}
 
 
 type Query struct {
