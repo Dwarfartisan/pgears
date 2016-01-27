@@ -451,6 +451,33 @@ func (engine *Engine) AutoTran(fun func(*Engine, *Tran) (interface{}, error)) (i
 	tx.Commit()
 	return re, nil
 }
+//多函数版本
+func (engine *Engine) AutoTrans(funs ...func(*Engine, *Tran) (interface{}, error)) (interface{}, error) {
+	tx, err := engine.Begin()
+	var re interface{} 
+	if err != nil {
+		return nil, err
+	}
+	// 这是 AutoTran 的最终安全锁，如果 fun 内部发生了 panic，在这里会 rollback 事务，并重新抛出错误
+	defer func() {
+		err := recover()
+		if err != nil {
+
+			tx.Rollback()
+			panic(err)
+		}
+	}()
+
+	for _,fun := range funs {
+		re, err = fun(engine, tx)
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
+	tx.Commit()
+	return re, nil
+}
 
 // Begin 返回一个封装后的事务对象
 func (engine *Engine) Begin() (*Tran, error) {
@@ -458,12 +485,13 @@ func (engine *Engine) Begin() (*Tran, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Tran{tx}, nil
+	return &Tran{tx,engine}, nil
 }
 
 // Tran 是事务对象的一个简单包装
 type Tran struct {
 	*sql.Tx
+	db *Engine
 }
 
 // Query 将一个给定的Query转为事务Query，作用类似 sql.Tx 的 Stmt 方法
@@ -471,6 +499,52 @@ func (tran *Tran) Query(query *Query) *Query {
 	stmt := tran.Stmt(query.Stmt)
 	return &Query{stmt, query.table}
 }
+//带有事务的版本
+// insert 的设定是 insert 插入所有字段，包括主键，有时候我们需要在应用层生成主键值，就使用这个逻辑
+func (tran *Tran) Insert(obj interface{}) error {
+	var typ = reflect.TypeOf(obj).Elem()
+	if m, ok := tran.db.gomap[typ]; ok {
+		var tabl, pk, fs, _ = m.Extract()
+		for _, p := range pk {
+			fs = append(fs, p)
+		}
+		var ins = exp.Insert(tabl, fs...)
+		var parser = NewParser(tran.db)
+
+		var sql = ins.Eval(parser)
+		//fmt.Println(sql)
+		var stmt, err = tran.Prepare(sql)
+
+		defer stmt.Close()
+
+		if err != nil {
+			return err
+		}
+		var l = len(pk)
+		var args = make([]interface{}, 0, l)
+		// 因为要填充，无论如何这里也要传入一个指针，不是指针的请自觉panic……
+		var val = reflect.ValueOf(obj).Elem()
+		for _, f := range fs {
+			if f, ok := f.(*exp.Field); ok {
+				var field, _ = typ.FieldByName(f.GoName)
+				var arg interface{} = ExtractField(val.FieldByName(f.GoName), field)
+				args = append(args, arg)
+			}
+		}
+		_, err = stmt.Exec(args...)
+		if err != nil {
+			return err
+		}
+		// 因为是完全从应用层取数据，也就不存在对返回结果集的处理，但是这里其实应该校验操作行数
+		return nil
+	} else {
+		var message = fmt.Sprintf("%v is't a regiested type",
+			fullGoName(typ))
+		return errors.New(message)
+	}
+}
+
+
 
 type Query struct {
 	*sql.Stmt
