@@ -452,33 +452,6 @@ func (engine *Engine) AutoTran(fun func(*Engine, *Tran) (interface{}, error)) (i
 	tx.Commit()
 	return re, nil
 }
-//多函数版本
-func (engine *Engine) AutoTrans(funs ...func(*Engine, *Tran) (interface{}, error)) (interface{}, error) {
-	tx, err := engine.Begin()
-	var re interface{} 
-	if err != nil {
-		return nil, err
-	}
-	// 这是 AutoTran 的最终安全锁，如果 fun 内部发生了 panic，在这里会 rollback 事务，并重新抛出错误
-	defer func() {
-		err := recover()
-		if err != nil {
-
-			tx.Rollback()
-			panic(err)
-		}
-	}()
-
-	for _,fun := range funs {
-		re, err = fun(engine, tx)
-		if err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	}
-	tx.Commit()
-	return re, nil
-}
 
 // Begin 返回一个封装后的事务对象
 func (engine *Engine) Begin() (*Tran, error) {
