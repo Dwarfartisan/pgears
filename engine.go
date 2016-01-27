@@ -273,7 +273,7 @@ func (e *Engine) Insert(obj interface{}) error {
 		defer stmt.Close()
 
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			return err
 		}
 		var l = len(pk)
@@ -325,7 +325,7 @@ func (e *Engine) InsertMerge(obj interface{}) error {
 		rset, err := stmt.Query(args...)
 		defer rset.Close()
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			return err
 		}
 		if rset.Next() {
