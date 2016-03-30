@@ -13,15 +13,16 @@ import (
 
 // desc 应该能作用到确定的排序字段
 type Sel struct {
-	selects []Exp
-	from    *Table
-	join    []Exp
-	where   Exp
-	groupby []Exp
-	having  Exp
-	orderby []Exp
-	limit   *int
-	offset  *int
+	selects  []Exp
+	from     *Table
+	join     []Exp
+	leftjoin []Exp
+	where    Exp
+	groupby  []Exp
+	having   Exp
+	orderby  []Exp
+	limit    *int
+	offset   *int
 }
 
 func SelectThem(fields ...string) *Sel {
@@ -30,24 +31,26 @@ func SelectThem(fields ...string) *Sel {
 		fs = append(fs, &Field{nil, fname, ""})
 	}
 	return &Sel{selects: fs,
-		from:    nil,
-		join:    nil,
-		where:   nil,
-		groupby: nil,
-		having:  nil,
-		orderby: nil,
-		limit:   nil,
+		from:     nil,
+		join:     nil,
+		leftjoin: nil,
+		where:    nil,
+		groupby:  nil,
+		having:   nil,
+		orderby:  nil,
+		limit:    nil,
 	}
 }
 func Select(fields ...Exp) *Sel {
 	return &Sel{selects: fields,
-		from:    nil,
-		join:    nil,
-		where:   nil,
-		groupby: nil,
-		having:  nil,
-		orderby: nil,
-		limit:   nil,
+		from:     nil,
+		join:     nil,
+		leftjoin: nil,
+		where:    nil,
+		groupby:  nil,
+		having:   nil,
+		orderby:  nil,
+		limit:    nil,
 	}
 }
 
@@ -62,6 +65,15 @@ func (sel *Sel) From(t *Table) *Sel {
 	}
 	return sel
 }
+
+func (sel *Sel) LeftJoin(t *Table, on Exp) *Sel {
+	if sel.leftjoin == nil {
+		sel.leftjoin = make([]Exp, 0)
+	}
+	sel.leftjoin = append(sel.leftjoin, leftjoinExp(t).onExp(on))
+	return sel
+}
+
 func (sel *Sel) Join(t *Table, on Exp) *Sel {
 	if sel.join == nil {
 		sel.join = make([]Exp, 0)
@@ -124,6 +136,11 @@ func (sel Sel) Eval(env Env) string {
 	}
 	if sel.join != nil {
 		for _, j := range sel.join {
+			command += (" " + j.Eval(env))
+		}
+	}
+	if sel.leftjoin != nil {
+		for _, j := range sel.leftjoin {
 			command += (" " + j.Eval(env))
 		}
 	}

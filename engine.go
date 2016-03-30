@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
 	"github.com/Dwarfartisan/pgears/dbdriver"
 	"github.com/Dwarfartisan/pgears/exp"
 	//_ "github.com/lib/pq"
@@ -51,17 +52,18 @@ type Engine struct {
 // CreateEngine 方法构造一个新的 Engine 对象，error 不为空的话表示构造过程出错。
 func CreateEngine(url string) (*Engine, error) {
 	//if (url == nil ) return nil , errors.New("url is not nil")
-	constr := strings.Split(url,"://")
-	if constr == nil{
+	constr := strings.Split(url, "://")
+	if constr == nil {
 		return nil, errors.New("connect url string is error")
 	}
 
 	switch {
-		case constr[0] == "sqlite":{
+	case constr[0] == "sqlite":
+		{
 			dbdriver.Sqltype = dbdriver.DB_SQLITE
-			conn,err := dbdriver.SqliteConnection(constr[1])
-			if err != nil{
-				return nil,err
+			conn, err := dbdriver.SqliteConnection(constr[1])
+			if err != nil {
+				return nil, err
 			}
 
 			return &Engine{conn, make(map[string]*DbTable),
@@ -69,11 +71,12 @@ func CreateEngine(url string) (*Engine, error) {
 				make(map[string]*DbTable),
 			}, nil
 		}
-		case constr[0]  == "postgres":{
+	case constr[0] == "postgres":
+		{
 			dbdriver.Sqltype = dbdriver.DB_POSTGRES
-			conn,err := dbdriver.PostpresConnection(url)
-			if err != nil{
-				return nil,err
+			conn, err := dbdriver.PostpresConnection(url)
+			if err != nil {
+				return nil, err
 			}
 
 			return &Engine{conn, make(map[string]*DbTable),
@@ -81,8 +84,8 @@ func CreateEngine(url string) (*Engine, error) {
 				make(map[string]*DbTable),
 			}, nil
 		}
-		default:
-			return nil, errors.New("current database is not supported")
+	default:
+		return nil, errors.New("current database is not supported")
 	}
 }
 
@@ -110,7 +113,7 @@ func (e *Engine) PrepareFor(typeName string, exp exp.Exp) (*Query, error) {
 //增加建表功能
 // add by zhaonf 2015.12.11 5:16
 //主要提供脚本进行测试使用
-func (e *Engine) CreateTable(typeName string) error{
+func (e *Engine) CreateTable(typeName string) error {
 	if table, ok := e.gonmap[typeName]; ok {
 		sql := table.GetCreateTableSQL()
 
@@ -126,7 +129,7 @@ func (e *Engine) CreateTable(typeName string) error{
 
 //add by zhaonf 2015.12.14 10:29
 //主要提供脚本测试，不要随意在生产和测试环境使用，只可以在脚本测试中玩哦！
-func (e *Engine) DropTable(typeName string) error{
+func (e *Engine) DropTable(typeName string) error {
 	if table, ok := e.gonmap[typeName]; ok {
 		sql := table.DropTable()
 		var _, err = e.DB.Exec(sql)
@@ -459,7 +462,7 @@ func (engine *Engine) Begin() (*Tran, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Tran{tx,engine}, nil
+	return &Tran{tx, engine}, nil
 }
 
 // Tran 是事务对象的一个简单包装
@@ -473,6 +476,7 @@ func (tran *Tran) Query(query *Query) *Query {
 	stmt := tran.Stmt(query.Stmt)
 	return &Query{stmt, query.table}
 }
+
 //带有事务的版本
 // insert 的设定是 insert 插入所有字段，包括主键，有时候我们需要在应用层生成主键值，就使用这个逻辑
 func (tran *Tran) Insert(obj interface{}) error {
@@ -555,7 +559,6 @@ func (tran *Tran) InsertMerge(obj interface{}) error {
 		return errors.New(message)
 	}
 }
-
 
 type Query struct {
 	*sql.Stmt
